@@ -1,8 +1,6 @@
 # 🟢 GitHub Contribution Bot
 
-📘 [**View Full User Guide**](https://githubbot-html.vercel.app/guide.html)
-
-[![Vercel](https://vercelbadge.vercel.app/api/CryptoExplor/GitHub-Contribution-Bot)](https://github.com/CryptoExplor/GitHub-Contribution-Bot)
+[![Vercel](https://vercelbadge.vercel.app/api/CryptoExplor/GitHub-Contribution-Bot)](https://github.com/CryptoExplor/GitHub-Contribution-Bot)   📘 [**View Full User Guide**](https://githubbot-html.vercel.app/guide.html)
 
 A browser-based, client-side app to simulate or automate GitHub activity via manual or scheduled commits — with heatmap preview, multi-repo support, and random or AI-powered commit messages.
 
