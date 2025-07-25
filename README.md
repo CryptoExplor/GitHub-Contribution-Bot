@@ -101,6 +101,24 @@ This tool uses the **Gemini API** to generate **context-aware commit messages**,
 
 ---
 
+## ⚠️ Disclaimer
+
+> **This project is for educational and demonstration purposes only.**  
+> It is designed to show how GitHub Actions can be used for scheduled automation tasks — not for inflating contributions or misleading viewers.
+
+Automating your GitHub activity can be a **fun and informative** way to learn about CI/CD, bots, scripting, and workflows — but it's important to use this responsibly:
+
+- Be **transparent** in your usage  
+- Avoid **spammy or misleading behavior**  
+- Present it clearly as a **testbed for learning automation**
+
+---
+
+🧪 Built for learning, not for production.  
+💚 Happy green squares!
+
+---
+
 ## 📄 License
 
 MIT © 2025 CryptoExplor
