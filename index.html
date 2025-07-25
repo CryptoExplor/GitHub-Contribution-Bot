@@ -31,76 +31,125 @@
         .tab-content.active {
             display: block;
         }
+        /* Dark mode styles */
+        .dark body {
+            background-color: #1a202c; /* Dark background */
+            color: #e2e8f0; /* Light text */
+        }
+        .dark .bg-white {
+            background-color: #2d3748; /* Darker card background */
+        }
+        .dark .text-gray-800 {
+            color: #e2e8f0;
+        }
+        .dark .text-gray-600 {
+            color: #cbd5e0;
+        }
+        .dark .text-gray-700 {
+            color: #cbd5e0;
+        }
+        .dark .border-gray-200 {
+            border-color: #4a5568;
+        }
+        .dark .bg-gray-100 {
+            background-color: #2d3748;
+        }
+        .dark input, .dark textarea, .dark select {
+            background-color: #4a5568;
+            border-color: #616e7f;
+            color: #e2e8f0;
+        }
+        .dark input::placeholder, .dark textarea::placeholder {
+            color: #a0aec0;
+        }
+        .dark .bg-gray-50 {
+            background-color: #2d3748;
+        }
+        .dark .text-gray-500 {
+            color: #a0aec0;
+        }
+        .dark .text-gray-700 {
+            color: #cbd5e0;
+        }
     </style>
     <!-- Cal-Heatmap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-between p-4">
-    <div class="bg-white shadow-xl rounded-2xl p-8 max-w-xl w-full mb-4">
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-between p-4 transition-colors duration-300 ease-in-out">
+    <div class="bg-white shadow-xl rounded-2xl p-8 max-w-xl w-full mb-4 dark:bg-gray-800 transition-colors duration-300 ease-in-out">
         <div class="flex flex-col items-center mb-6">
             <img src="https://d.cess.network/n1/1075188011.png" alt="Farmlabs Logo" class="h-16 w-auto mb-2">
-            <h1 class="text-3xl font-bold text-center text-gray-800">Farmlabs GitHub Bot</h1>
-            <p class="text-sm text-gray-600 text-center">Automate your GitHub contributions with ease</p>
+            <h1 class="text-3xl font-bold text-center text-gray-800 dark:text-white">Farmlabs GitHub Bot</h1>
+            <p class="text-sm text-gray-600 text-center dark:text-gray-400">Automate your GitHub contributions with ease</p>
+            <!-- Dark Mode Toggle -->
+            <div class="flex items-center mt-4">
+                <span class="text-gray-700 dark:text-gray-300 mr-2">Light</span>
+                <label for="darkModeToggle" class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="darkModeToggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                </label>
+                <span class="text-gray-700 dark:text-gray-300 ml-2">Dark</span>
+            </div>
         </div>
 
         <!-- Tab Buttons -->
-        <div class="flex border-b border-gray-200 mb-6">
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tl-lg hover:bg-gray-100 active" data-tab="main-controls">Main Controls</button>
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100" data-tab="historic-commits">Historic Commits</button>
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100" data-tab="heatmaps">Heatmaps</button>
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100" data-tab="about">About</button>
+        <div class="flex border-b border-gray-200 mb-6 dark:border-gray-700">
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tl-lg hover:bg-gray-100 active dark:text-gray-300 dark:hover:bg-gray-700" data-tab="main-controls">Main Controls</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="historic-commits">Historic Commits</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="heatmaps">Heatmaps</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="about">About</button>
             <!-- NEW: User Guide Tab Button -->
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100" data-tab="user-guide">User Guide</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="user-guide">User Guide</button>
         </div>
 
         <!-- Tab Content -->
         <div id="main-controls" class="tab-content active space-y-4">
             <div>
-                <label for="token" class="block text-gray-700 text-sm font-medium mb-1">GitHub Personal Access Token (PAT):</label>
+                <label for="token" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">GitHub Personal Access Token (PAT):</label>
                 <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <p class="text-xs text-gray-500 mt-1">Make sure your PAT has 'repo' scope.</p>
+                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Make sure your PAT has 'repo' scope.</p>
             </div>
 
             <!-- New: Gemini API Key Input -->
             <div>
-                <label for="geminiApiKey" class="block text-gray-700 text-sm font-medium mb-1">Gemini API Key (for Smart Commit Messages):</label>
+                <label for="geminiApiKey" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Gemini API Key (for Smart Commit Messages):</label>
                 <input type="password" id="geminiApiKey" placeholder="AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                <p class="text-xs text-gray-500 mt-1">Required for generating smart commit messages using AI.</p>
+                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Required for generating smart commit messages using AI.</p>
             </div>
 
             <div>
-                <label for="username" class="block text-gray-700 text-sm font-medium mb-1">GitHub Username:</label>
+                <label for="username" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">GitHub Username:</label>
                 <input type="text" id="username" placeholder="Your GitHub Username"
-                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
             </div>
 
             <div>
-                <label for="repo" class="block text-gray-700 text-sm font-medium mb-1">Select Repositories (Ctrl/Cmd + Click to select multiple):</label>
+                <label for="repo" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Select Repositories (Ctrl/Cmd + Click to select multiple):</label>
                 <select id="repo" multiple
-                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     <option value="">Loading Repos...</option>
                 </select>
             </div>
 
             <div>
-                <label for="branch" class="block text-gray-700 text-sm font-medium mb-1">Select Branch:</label>
-                <select id="branch" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="branch" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Select Branch:</label>
+                <select id="branch" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     <option value="">Select Repo First</option>
                 </select>
             </div>
 
             <div>
-                <label for="filepath" class="block text-gray-700 text-sm font-medium mb-1">File Path (e.g., README.md or new-file.txt):</label>
+                <label for="filepath" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">File Path (e.g., README.md or new-file.txt):</label>
                 <input type="text" id="filepath" placeholder="README.md"
-                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
             </div>
 
             <div>
-                <label for="commitContext" class="block text-gray-700 text-sm font-medium mb-1">Context for Commit Message (e.g., "fixed login bug"):</label>
+                <label for="commitContext" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Context for Commit Message (e.g., "fixed login bug"):</label>
                 <textarea id="commitContext" rows="2" placeholder="Briefly describe the commit purpose for AI message generation..."
-                          class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y"></textarea>
+                          class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
                 <button onclick="generateSmartCommitMessage()" id="generateMessageButton"
                         class="w-full bg-purple-500 text-white py-2 rounded-md font-semibold hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-2">
                     ✨ Generate Smart Commit Message
@@ -108,9 +157,9 @@
             </div>
 
             <div>
-                <label for="content" class="block text-gray-700 text-sm font-medium mb-1">Commit Message / Content:</label>
+                <label for="content" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Commit Message / Content:</label>
                 <textarea id="content" rows="6" placeholder="Leave blank for auto-generated content..."
-                          class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"></textarea>
+                          class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
             </div>
 
             <button onclick="makeSingleCommit()" id="makeCommitButton"
@@ -118,13 +167,13 @@
                 Make Single Commit
             </button>
 
-            <div class="border-t border-gray-200 pt-4 mt-4">
-                <h3 class="text-lg font-semibold mb-3 text-gray-800">Auto Commit Settings</h3>
+            <div class="border-t border-gray-200 pt-4 mt-4 dark:border-gray-700">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Auto Commit Settings</h3>
                 <div class="flex space-x-2 mb-4">
                     <input type="number" id="intervalValue" value="24" min="1"
-                           class="w-1/3 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" />
+                           class="w-1/3 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <select id="intervalType"
-                            class="w-2/3 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                            class="w-2/3 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                         <option value="hours">Hours</option>
                         <option value="minutes">Minutes</option>
                         <option value="days">Days</option>
@@ -134,10 +183,10 @@
                 <!-- ✅ Safe Mode Toggle and Logic -->
                 <div class="mt-4">
                     <label class="inline-flex items-center space-x-2">
-                        <input type="checkbox" id="safeMode" class="h-5 w-5 text-blue-600 border-gray-300 rounded"/>
-                        <span class="text-sm font-medium">🛡️ Enable Safe Mode (Human-like Behavior)</span>
+                        <input type="checkbox" id="safeMode" class="h-5 w-5 text-blue-600 border-gray-300 rounded dark:border-gray-600"/>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">🛡️ Enable Safe Mode (Human-like Behavior)</span>
                     </label>
-                    <p class="text-xs text-gray-500 mt-1 ml-7">Adds random delays, varied messages, and commit pacing to avoid bot patterns.</p>
+                    <p class="text-xs text-gray-500 mt-1 ml-7 dark:text-gray-400">Adds random delays, varied messages, and commit pacing to avoid bot patterns.</p>
                 </div>
 
                 <button onclick="toggleAutoCommit()" id="toggleAutoCommitButton"
@@ -146,36 +195,36 @@
                 </button>
             </div>
             <!-- Safe Mode Activity Log -->
-            <div class="mt-6 border-t border-gray-200 pt-4">
-                <h3 class="text-lg font-semibold mb-2 text-gray-800">Safe Mode Activity Log</h3>
-                <ul id="safeModeLog" class="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-48 text-gray-700 space-y-1">
+            <div class="mt-6 border-t border-gray-200 pt-4 dark:border-gray-700">
+                <h3 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Safe Mode Activity Log</h3>
+                <ul id="safeModeLog" class="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-48 text-gray-700 space-y-1 dark:bg-gray-700 dark:text-gray-300">
                     <!-- Log entries will be appended here -->
-                    <li class="text-gray-500">No Safe Mode activity yet.</li>
+                    <li class="text-gray-500 dark:text-gray-400">No Safe Mode activity yet.</li>
                 </ul>
             </div>
         </div>
 
         <div id="historic-commits" class="tab-content space-y-4">
-            <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Historic Commits</h3>
-            <p class="text-sm text-gray-600 mb-2">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Simulated Historic Commits</h3>
+            <p class="text-sm text-gray-600 mb-2 dark:text-gray-400">
                 Generate commits with messages and content referencing past dates.
                 **Note:** This does not alter the actual GitHub commit timestamp, only the visible message.
             </p>
             <div class="space-y-3">
                 <div>
-                    <label for="simulatedStartDate" class="block text-gray-700 text-sm font-medium mb-1">Start Date:</label>
+                    <label for="simulatedStartDate" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Start Date:</label>
                     <input type="date" id="simulatedStartDate"
-                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                 </div>
                 <div>
-                    <label for="simulatedEndDate" class="block text-gray-700 text-sm font-medium mb-1">End Date:</label>
+                    <label for="simulatedEndDate" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">End Date:</label>
                     <input type="date" id="simulatedEndDate"
-                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                 </div>
                 <div>
-                    <label for="streakPatternSelect" class="block text-gray-700 text-sm font-medium mb-1">Choose Pattern or Random:</label>
+                    <label for="streakPatternSelect" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Choose Pattern or Random:</label>
                     <select id="streakPatternSelect"
-                            class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                         <option value="random">Random Distribution</option>
                         <option value="30-day-streak">30-Day Streak (Daily)</option>
                         <option value="checkerboard">Checkerboard (Every Other Day)</option>
@@ -185,9 +234,9 @@
                     </select>
                 </div>
                 <div id="numCommitsContainer">
-                    <label for="numSimulatedCommits" class="block text-gray-700 text-sm font-medium mb-1">Number of commits (for Random/Burst):</label>
+                    <label for="numSimulatedCommits" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Number of commits (for Random/Burst):</label>
                     <input type="number" id="numSimulatedCommits" value="10" min="1" max="100"
-                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                 </div>
             </div>
             <button onclick="generateSimulatedCommits()" id="generateSimulatedCommitsButton"
@@ -197,9 +246,9 @@
         </div>
 
         <div id="heatmaps" class="tab-content space-y-4">
-            <div class="border-b border-gray-200 pb-4 mb-4">
-                <h3 class="text-lg font-semibold mb-3 text-gray-800">Real GitHub Contribution Heatmap</h3>
-                <p class="text-sm text-gray-600 mb-2">
+            <div class="border-b border-gray-200 pb-4 mb-4 dark:border-gray-700">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Real GitHub Contribution Heatmap</h3>
+                <p class="text-sm text-gray-600 mb-2 dark:text-gray-400">
                     Fetches your public GitHub activity events using the GitHub API.
                     **Note:** This requires a PAT with 'read:user' or 'public_repo' scope and might not perfectly match your full contribution graph (e.g., private contributions without proper token scope, or older data due to API pagination limits).
                 </p>
@@ -207,68 +256,68 @@
                         class="w-full bg-blue-500 text-white py-3 rounded-md font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
                     Load Real Heatmap
                 </button>
-                <div id="realHeatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto">
+                <div id="realHeatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto dark:bg-gray-700 dark:border-gray-600">
                     <!-- Real Cal-Heatmap will render here -->
                 </div>
             </div>
 
             <div>
-                <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Heatmap Preview</h3>
-                <p class="text-sm text-gray-600 mb-2">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Simulated Heatmap Preview</h3>
+                <p class="text-sm text-gray-600 mb-2 dark:text-gray-400">
                     Visualizes your generated simulated commit dates.
                 </p>
                 <button onclick="renderHeatmapFromSimulatedData()" id="previewHeatmapButton"
                         class="w-full bg-gray-500 text-white py-3 rounded-md font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-2">
                     Refresh Simulated Heatmap Preview
                 </button>
-                <div id="heatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto">
+                <div id="heatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto dark:bg-gray-700 dark:border-gray-600">
                     <!-- Cal-Heatmap will render here -->
                 </div>
             </div>
         </div>
 
         <div id="about" class="tab-content space-y-4">
-            <h3 class="text-lg font-semibold mb-3 text-gray-800">About This Project</h3>
-            <p class="text-gray-700">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">About This Project</h3>
+            <p class="text-gray-700 dark:text-gray-300">
                 This GitHub Auto Commit Bot is a side project developed by <a href="https://farmlabs.pages.dev" target="_blank" class="text-blue-600 hover:underline">Farmlabs</a>.
                 It's designed to help you manage and visualize your GitHub contribution graph with ease.
             </p>
-            <p class="text-gray-700">
+            <p class="text-gray-700 dark:text-gray-300">
                 You can find the source code and contribute to this project on GitHub:
                 <a href="https://github.com/CryptoExplor/GitHub-Contribution-Bot" target="_blank" class="text-blue-600 hover:underline">GitHub Repository</a>.
             </p>
-            <p class="text-gray-700">
+            <p class="text-gray-700 dark:text-gray-300">
                 Connect with the developer:
                 <a href="https://github.com/CryptoExplor" target="_blank" class="text-blue-600 hover:underline">Github</a> |
                 <a href="https://t.me/dare_3" target="_blank" class="text-blue-600 hover:underline">Telegram</a>
             </p>
-            <p class="text-gray-700">
+            <p class="text-gray-700 dark:text-gray-300">
                 This tool leverages the power of the Gemini API for smart commit message generation, providing a more intelligent and personalized experience.
             </p>
         </div>
 
         <!-- NEW: User Guide Tab Content -->
         <div id="user-guide" class="tab-content space-y-4">
-            <h3 class="text-lg font-semibold mb-3 text-gray-800">User Guide</h3>
-            <p class="text-gray-700">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">User Guide</h3>
+            <p class="text-gray-700 dark:text-gray-300">
                 For a detailed guide on how to use this bot and create a GitHub Personal Access Token, please visit our dedicated guide page:
                 <a href="guide.html" target="_blank" class="text-blue-600 hover:underline font-semibold">Open User Guide (guide.html)</a>
             </p>
         </div>
 
         <div class="mt-6">
-            <h3 class="text-lg font-semibold mb-2 text-gray-800">Status</h3>
-            <pre id="status" class="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-64 text-gray-700"></pre>
+            <h3 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Status</h3>
+            <pre id="status" class="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-64 text-gray-700 dark:bg-gray-700 dark:text-gray-300"></pre>
         </div>
 
         <!-- Loading Indicator -->
         <div id="loadingIndicator" class="mt-4 text-center hidden">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p class="text-gray-600 mt-2">Processing...</p>
+            <p class="text-gray-600 mt-2 dark:text-gray-400">Processing...</p>
         </div>
     </div>
 
-    <footer class="mt-8 text-center text-gray-600 text-sm w-full max-w-xl">
+    <footer class="mt-8 text-center text-gray-600 text-sm w-full max-w-xl dark:text-gray-400">
         <p>&copy; 2025 Farmlabs. All rights reserved.</p>
         <p>
             <a href="https://farmlabs.pages.dev" target="_blank" class="text-blue-600 hover:underline">Farmlabs Homepage</a> |
@@ -384,6 +433,8 @@
                 localStorage.setItem("gh_commitContext", document.getElementById("commitContext").value.trim()); // Save new input
                 // Save Gemini API Key if user provides it
                 localStorage.setItem("gemini_api_key", document.getElementById("geminiApiKey")?.value.trim() || '');
+                // Save dark mode preference
+                localStorage.setItem("darkMode", document.documentElement.classList.contains("dark"));
 
                 // No status message here to avoid spamming on every input change
             } catch (e) {
@@ -416,6 +467,11 @@
                 if (document.getElementById("geminiApiKey")) {
                     document.getElementById("geminiApiKey").value = localStorage.getItem("gemini_api_key") || '';
                 }
+                // Load dark mode preference
+                const isDarkMode = localStorage.getItem("darkMode") === "true";
+                document.documentElement.classList.toggle("dark", isDarkMode);
+                document.getElementById("darkModeToggle").checked = isDarkMode;
+
             } catch (e) {
                 console.error("Failed to load settings from local storage:", e);
                 showStatusMessage("Error loading settings locally. Please enter them manually.", "error");
@@ -567,7 +623,7 @@
         function showStatusMessage(message, type) {
             const statusMessageDiv = document.getElementById("status");
             statusMessageDiv.innerHTML = message; // Use innerHTML to allow links
-            statusMessageDiv.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800', 'bg-gray-50');
+            statusMessageDiv.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800', 'bg-gray-50', 'dark:bg-gray-700', 'dark:text-gray-300');
 
             if (type === 'success') {
                 statusMessageDiv.classList.add('bg-green-100', 'text-green-800');
@@ -576,7 +632,7 @@
             } else if (type === 'info') {
                 statusMessageDiv.classList.add('bg-blue-100', 'text-blue-800');
             } else { // default to gray for general status
-                statusMessageDiv.classList.add('bg-gray-50', 'text-gray-700');
+                statusMessageDiv.classList.add('bg-gray-50', 'text-gray-700', 'dark:bg-gray-700', 'dark:text-gray-300');
             }
         }
 
@@ -608,7 +664,8 @@
                 document.getElementById('streakPatternSelect'),
                 document.getElementById('commitContext'),
                 document.getElementById('generateMessageButton'),
-                document.getElementById('safeMode') // Also disable safe mode checkbox
+                document.getElementById('safeMode'), // Also disable safe mode checkbox
+                document.getElementById('darkModeToggle') // Disable dark mode toggle during loading
             ];
 
             allControls.forEach(control => {
@@ -721,7 +778,7 @@
                     const cliOutput = `[${branch} ${commitHash}] ${commitMessage}\n 1 file changed, 1 insertion(+)`;
 
                     if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
-                        showStatusMessage(`✅ Commit successful to ${repo}!\n<pre class="bg-gray-100 p-2 rounded mt-1 text-xs">${cliOutput}</pre>Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
+                        showStatusMessage(`✅ Commit successful to ${repo}!\n<pre class="bg-gray-100 p-2 rounded mt-1 text-xs dark:bg-gray-700 dark:text-gray-300">${cliOutput}</pre>Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
                     } else if (safeModeLoopActive || commitMessageOverride) {
                         if (window.debugMode) console.log(`✅ Auto Commit successful to ${repo}: ${commitMessage}`);
                         const safeModeLog = document.getElementById('safeModeLog');
@@ -1072,7 +1129,7 @@
                 yearAgo.setFullYear(now.getFullYear() - 1);
 
                 const startRange = firstEventDate < yearAgo ? firstEventDate : yearAgo;
-                const endRange = lastEventDate > now ? lastEventDate : now;
+                const endRange = lastEventDate > now ? lastDate : now;
 
                 const cal = new CalHeatmap();
                 cal.init({
@@ -1226,6 +1283,10 @@
         document.getElementById("loadRealHeatmapButton").addEventListener("click", loadRealContributionHeatmap);
         document.getElementById("generateMessageButton").addEventListener("click", generateSmartCommitMessage);
         document.getElementById("generateSimulatedCommitsButton").addEventListener("click", generateSimulatedCommits);
+        document.getElementById("darkModeToggle").addEventListener("change", () => {
+            document.documentElement.classList.toggle("dark");
+            saveSettingsToStorage(); // Save dark mode preference
+        });
 
 
         // Tab switching logic
