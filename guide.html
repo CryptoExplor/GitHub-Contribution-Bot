@@ -71,6 +71,7 @@
             <ul class="space-y-2">
                 <li><a href="#getting-started" class="text-blue-600 hover:underline" onclick="toggleSidebar()">✅ Getting Started</a></li>
                 <li><a href="#create-pat" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🔑 Create GitHub Token</a></li>
+                <li><a href="#provide-gemini-key" class="text-blue-600 hover:underline" onclick="toggleSidebar()">✨ Provide Gemini Key</a></li>
                 <li><a href="#how-to-use" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🛠️ How to Use</a></li>
                 <li><a href="#safe-mode" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🧠 Safe Mode Explained</a></li>
                 <li><a href="#what-to-do" class="text-blue-600 hover:underline" onclick="toggleSidebar()">⚠️ What To Do</a></li>
@@ -124,6 +125,18 @@
                     <li>Paste this token into the "GitHub Personal Access Token (PAT)" field in the bot's "Main Controls" tab.</li>
                 </ol>
                 <p class="text-xs text-gray-500 mt-2">For more details, refer to GitHub's official documentation on <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens" target="_blank" class="text-blue-600 hover:underline">managing personal access tokens</a>.</p>
+            </section>
+
+            <section id="provide-gemini-key">
+                <h2 class="text-xl font-semibold">✨ How to Provide Gemini API Key</h2>
+                <p class="text-sm mt-2">The bot can generate smart commit messages using the Gemini API. To enable this feature, you need to provide your Gemini API Key:</p>
+                <ol class="list-decimal list-inside text-sm mt-2 space-y-2">
+                    <li>Obtain your Gemini API Key from the Google AI Studio or Google Cloud Console.</li>
+                    <li>In the bot's "Main Controls" tab, locate the "Gemini API Key (for Smart Commit Messages)" input field.</li>
+                    <li>Paste your Gemini API Key into this field.</li>
+                    <li>The key will be automatically saved to your browser's local storage for future use.</li>
+                </ol>
+                <p class="text-xs text-gray-500 mt-2">Ensure your API key is kept confidential and is not shared publicly.</p>
             </section>
 
             <section id="how-to-use">
@@ -233,7 +246,7 @@
                                 <td class="py-2 px-4 border-b">Allowed, but might hurt repo credibility</td>
                             </tr>
                             <tr>
-                                <td class="py-2 px-4 border-b">🟡 “Artificial” heatmap filling</td>
+                                <td class="py-2 px-4 border-b">� “Artificial” heatmap filling</td>
                                 <td class="py-2 px-4 border-b">Low</td>
                                 <td class="py-2 px-4 border-b">Common, not against rules (if to your own repos)</td>
                             </tr>
@@ -353,3 +366,4 @@
     </script>
 </body>
 </html>
+�
