@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitHub Auto Commit Bot</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white shadow-xl rounded-2xl p-8 max-w-xl w-full">
+        <h2 class="text-2xl font-bold mb-4 text-center text-gray-800">GitHub Auto Commit Bot</h2>
+
+        <div class="space-y-4">
+            <label for="token" class="block text-gray-700 text-sm font-medium mb-1">GitHub Personal Access Token (PAT):</label>
+            <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                   class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <p class="text-xs text-gray-500 mt-1">Make sure your PAT has 'repo' scope.</p>
+
+            <label for="username" class="block text-gray-700 text-sm font-medium mb-1">GitHub Username:</label>
+            <input type="text" id="username" placeholder="Your GitHub Username"
+                   class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+            <label for="repo" class="block text-gray-700 text-sm font-medium mb-1">Select Repository:</label>
+            <select id="repo" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Loading Repos...</option>
+            </select>
+
+            <label for="filepath" class="block text-gray-700 text-sm font-medium mb-1">File Path (e.g., README.md or new-file.txt):</label>
+            <input type="text" id="filepath" placeholder="README.md"
+                   class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+            <label for="content" class="block text-gray-700 text-sm font-medium mb-1">Content to commit:</label>
+            <textarea id="content" rows="6" placeholder="Leave blank for auto-generated content..."
+                      class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"></textarea>
+
+            <button onclick="commitToGitHub()" id="makeCommitButton"
+                    class="w-full bg-blue-600 text-white py-2 rounded-md font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
+                Make Commit
+            </button>
+            <button onclick="toggleAutoCommit()" id="toggleAutoCommitButton"
+                    class="w-full bg-green-600 text-white py-2 rounded-md font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
+                Toggle Daily Auto Commit
+            </button>
+        </div>
+
+        <div class="mt-6">
+            <h3 class="text-lg font-semibold mb-2 text-gray-800">Status</h3>
+            <pre id="status" class="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-64 text-gray-700"></pre>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="mt-4 text-center hidden">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+            <p class="text-gray-600 mt-2">Processing...</p>
+        </div>
+    </div>
+
+    <script>
+        const randomMessages = [
+            "chore: daily sync",
+            "docs: updated readme",
+            "fix: minor typo fix",
+            "style: format cleanup",
+            "refactor: structure improvement",
+            "feat: auto commit bot",
+            "update: content refresh"
+        ];
+
+        let autoCommitInterval = null;
+
+        /**
+         * Saves the GitHub token to local storage.
+         * @param {string} token The GitHub Personal Access Token.
+         */
+        function saveTokenToStorage(token) {
+            try {
+                localStorage.setItem("gh_token", token);
+            } catch (e) {
+                console.error("Failed to save token to local storage:", e);
+                showStatusMessage("Error saving token locally. Please check browser settings.", "error");
+            }
+        }
+
+        /**
+         * Loads the GitHub token from local storage.
+         */
+        function loadTokenFromStorage() {
+            try {
+                const saved = localStorage.getItem("gh_token");
+                if (saved) {
+                    document.getElementById("token").value = saved;
+                }
+            } catch (e) {
+                console.error("Failed to load token from local storage:", e);
+                showStatusMessage("Error loading token locally. Please enter it manually.", "error");
+            }
+        }
+
+        /**
+         * Fetches user repositories from GitHub and populates the dropdown.
+         */
+        async function loadUserRepos() {
+            const token = document.getElementById("token").value.trim();
+            const username = document.getElementById("username").value.trim();
+            const repoSelect = document.getElementById("repo");
+            repoSelect.innerHTML = "<option value=''>Loading Repos...</option>"; // Reset and show loading
+
+            if (!token || !username) {
+                repoSelect.innerHTML = "<option value=''>Enter Token and Username</option>";
+                return;
+            }
+
+            const headers = {
+                "Authorization": `token ${token}`,
+                "Accept": "application/vnd.github.v3+json"
+            };
+
+            try {
+                const res = await fetch(`https://api.github.com/users/${username}/repos?type=owner`, { headers });
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.message || "Failed to fetch repositories.");
+                }
+                const repos = await res.json();
+                repoSelect.innerHTML = "<option value=''>Select Repo</option>"; // Clear loading message
+                repos.forEach(repo => {
+                    const option = document.createElement("option");
+                    option.value = repo.full_name;
+                    option.innerText = repo.full_name;
+                    repoSelect.appendChild(option);
+                });
+                showStatusMessage("Repositories loaded successfully.", "success");
+            } catch (err) {
+                console.error("Error loading repositories:", err);
+                repoSelect.innerHTML = "<option value=''>Error loading repos</option>";
+                showStatusMessage(`Error loading repositories: ${err.message}. Check token/username.`, "error");
+            }
+        }
+
+        /**
+         * Converts a string to Base64.
+         * @param {string} str The input string.
+         * @returns {string} The Base64 encoded string.
+         */
+        function toBase64(str) {
+            return btoa(unescape(encodeURIComponent(str)));
+        }
+
+        /**
+         * Converts a Base64 string to a regular string.
+         * @param {string} base64 The Base64 encoded string.
+         * @returns {string} The decoded string.
+         */
+        function fromBase64(base64) {
+            return decodeURIComponent(escape(atob(base64)));
+        }
+
+        /**
+         * Displays a status message to the user.
+         * @param {string} message The message to display.
+         * @param {string} type The type of message ('success', 'error', 'info').
+         */
+        function showStatusMessage(message, type) {
+            const statusMessageDiv = document.getElementById("status");
+            statusMessageDiv.textContent = message;
+            statusMessageDiv.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800', 'bg-gray-50');
+
+            if (type === 'success') {
+                statusMessageDiv.classList.add('bg-green-100', 'text-green-800');
+            } else if (type === 'error') {
+                statusMessageDiv.classList.add('bg-red-100', 'text-red-800');
+            } else if (type === 'info') {
+                statusMessageDiv.classList.add('bg-blue-100', 'text-blue-800');
+            } else { // default to gray for general status
+                statusMessageDiv.classList.add('bg-gray-50', 'text-gray-700');
+            }
+        }
+
+        /**
+         * Toggles the loading indicator visibility and disables buttons.
+         * @param {boolean} show True to show, false to hide.
+         */
+        function toggleLoading(show) {
+            document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
+            document.getElementById('makeCommitButton').disabled = show;
+            document.getElementById('toggleAutoCommitButton').disabled = show;
+        }
+
+        /**
+         * Handles the commit process to GitHub.
+         */
+        async function commitToGitHub() {
+            const token = document.getElementById("token").value.trim();
+            const repo = document.getElementById("repo").value.trim();
+            const path = document.getElementById("filepath").value.trim();
+            let contentInput = document.getElementById("content").value;
+
+            if (!token || !repo || !path) {
+                showStatusMessage("Please fill in all required fields: Token, Repository, and File Path.", "error");
+                return;
+            }
+
+            saveTokenToStorage(token); // Save token on successful input
+
+            toggleLoading(true);
+            showStatusMessage("Attempting to commit...", "info");
+
+            const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+            const headers = {
+                "Authorization": `token ${token}`,
+                "Accept": "application/vnd.github.v3+json"
+            };
+
+            let sha = null;
+            let currentContent = '';
+
+            try {
+                // Try to get the file's current SHA and content
+                const getRes = await fetch(apiUrl, { headers });
+                if (getRes.status === 200) {
+                    const data = await getRes.json();
+                    sha = data.sha;
+                    currentContent = fromBase64(data.content);
+                    showStatusMessage(`File '${path}' found. Preparing to update...`, "info");
+                } else if (getRes.status === 404) {
+                    showStatusMessage(`File '${path}' not found. Preparing to create new file...`, "info");
+                    // No SHA needed for new file creation
+                } else {
+                    const errorData = await getRes.json();
+                    throw new Error(`Failed to fetch file: ${errorData.message || getRes.statusText}`);
+                }
+            } catch (error) {
+                console.error("Error fetching file:", error);
+                showStatusMessage(`Error fetching file: ${error.message}. Will attempt to create if not exists.`, "error");
+                // Continue to attempt PUT, as 404 is expected for new files
+            }
+
+            // Determine final content: user input, or auto-generated if input is empty
+            const finalContent = contentInput === ''
+                ? `# ${randomMessages[Math.floor(Math.random() * randomMessages.length)]}\n\nUpdated on ${new Date().toLocaleString()}`
+                : contentInput;
+
+            const encodedContent = toBase64(finalContent);
+            const commitMessage = `${randomMessages[Math.floor(Math.random() * randomMessages.length)]} - ${new Date().toLocaleString()}`;
+
+            const body = {
+                message: commitMessage,
+                content: encodedContent,
+                sha: sha // sha is null for new files, which is correct for GitHub API
+            };
+
+            try {
+                const putRes = await fetch(apiUrl, {
+                    method: "PUT",
+                    headers,
+                    body: JSON.stringify(body)
+                });
+
+                const result = await putRes.json();
+
+                if (putRes.ok) {
+                    showStatusMessage(`✅ Commit successful! Check your repo: ${result.commit.html_url}`, "success");
+                } else {
+                    throw new Error(result.message || "Unknown error during commit.");
+                }
+            } catch (error) {
+                console.error("Commit failed:", error);
+                showStatusMessage(`❌ Commit failed: ${error.message}`, "error");
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
+        /**
+         * Toggles the daily auto-commit feature.
+         */
+        function toggleAutoCommit() {
+            if (autoCommitInterval) {
+                clearInterval(autoCommitInterval);
+                autoCommitInterval = null;
+                document.getElementById("toggleAutoCommitButton").textContent = "Toggle Daily Auto Commit";
+                document.getElementById("toggleAutoCommitButton").classList.remove('bg-red-600', 'hover:bg-red-700');
+                document.getElementById("toggleAutoCommitButton").classList.add('bg-green-600', 'hover:bg-green-700');
+                showStatusMessage("❌ Auto Commit Disabled", "error");
+            } else {
+                // Perform an immediate commit when starting auto-commit
+                commitToGitHub();
+                // Set interval for every 24 hours (24 * 60 * 60 * 1000 milliseconds)
+                autoCommitInterval = setInterval(commitToGitHub, 24 * 60 * 60 * 1000);
+                document.getElementById("toggleAutoCommitButton").textContent = "Auto Commit ON (Click to Stop)";
+                document.getElementById("toggleAutoCommitButton").classList.remove('bg-green-600', 'hover:bg-green-700');
+                document.getElementById("toggleAutoCommitButton").classList.add('bg-red-600', 'hover:bg-red-700');
+                showStatusMessage("✅ Auto Commit Enabled (Every 24h)", "success");
+            }
+        }
+
+        // Event Listeners
+        document.getElementById("token").addEventListener("input", loadUserRepos); // Use 'input' for real-time updates
+        document.getElementById("username").addEventListener("input", loadUserRepos); // Listen to username changes too
+
+        // Initial setup on window load
+        window.onload = () => {
+            loadTokenFromStorage();
+            // Load repos after token and username might have been loaded from storage
+            // Add a small delay to ensure inputs are populated if from storage
+            setTimeout(loadUserRepos, 100);
+        };
+    </script>
+</body>
+</html>
