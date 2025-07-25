@@ -22,6 +22,15 @@
         select[multiple] {
             min-height: 100px; /* Adjust as needed */
         }
+        .tab-button.active {
+            @apply bg-blue-600 text-white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
     </style>
     <!-- Cal-Heatmap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.css" rel="stylesheet">
@@ -33,7 +42,15 @@
         </div>
         <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">GitHub Auto Commit Bot</h2>
 
-        <div class="space-y-4">
+        <!-- Tab Buttons -->
+        <div class="flex border-b border-gray-200 mb-6">
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tl-lg hover:bg-gray-100 active" data-tab="main-controls">Main Controls</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100" data-tab="historic-commits">Historic Commits</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100" data-tab="heatmaps">Heatmaps</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="main-controls" class="tab-content active space-y-4">
             <div>
                 <label for="token" class="block text-gray-700 text-sm font-medium mb-1">GitHub Personal Access Token (PAT):</label>
                 <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -96,11 +113,13 @@
                     Toggle Auto Commit
                 </button>
             </div>
+        </div>
 
-            <div class="border-t border-gray-200 pt-4 mt-4">
-                <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Historic Commits (Message-Based)</h3>
+        <div id="historic-commits" class="tab-content space-y-4">
+            <div class="border-b border-gray-200 pb-4 mb-4">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Random Historic Commits</h3>
                 <p class="text-sm text-gray-600 mb-2">
-                    This will create multiple commits where the commit message and content include a past date.
+                    Generate commits with messages and content referencing past dates.
                     **Note:** This does not alter the actual GitHub commit timestamp, only the visible message.
                 </p>
                 <div class="space-y-3">
@@ -131,7 +150,7 @@
                 </button>
             </div>
 
-            <div class="border-t border-gray-200 pt-4 mt-4">
+            <div>
                 <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Heatmap & Streak Planner</h3>
                 <p class="text-sm text-gray-600 mb-2">
                     Choose a pattern to generate specific commit dates and visualize them below.
@@ -172,8 +191,10 @@
                     <!-- Cal-Heatmap will render here -->
                 </div>
             </div>
+        </div>
 
-            <div class="border-t border-gray-200 pt-4 mt-4">
+        <div id="heatmaps" class="tab-content space-y-4">
+            <div class="border-b border-gray-200 pb-4 mb-4">
                 <h3 class="text-lg font-semibold mb-3 text-gray-800">Real GitHub Contribution Heatmap</h3>
                 <p class="text-sm text-gray-600 mb-2">
                     Fetches your public GitHub activity events and displays them as a heatmap.
@@ -244,7 +265,7 @@
                 localStorage.setItem("gh_patternStartDate", document.getElementById("patternStartDate").value.trim());
                 localStorage.setItem("gh_patternEndDate", document.getElementById("patternEndDate").value.trim());
 
-                showStatusMessage("Settings saved locally.", "info");
+                // No status message here to avoid spamming on every input change
             } catch (e) {
                 console.error("Failed to save settings to local storage:", e);
                 showStatusMessage("Error saving settings locally. Please check browser settings.", "error");
@@ -260,7 +281,6 @@
                 document.getElementById("username").value = localStorage.getItem("gh_username") || '';
 
                 // Load selected repos as array
-                const savedRepos = JSON.parse(localStorage.getItem("gh_repos") || '[]');
                 // Will select options after repos are loaded in loadUserRepos
 
                 document.getElementById("branch").value = localStorage.getItem("gh_branch") || '';
@@ -441,9 +461,8 @@
         /**
          * Toggles the loading indicator visibility and disables/enables all interactive elements.
          * @param {boolean} show True to show, false to hide.
-         * @param {string} [context] Optional context to disable specific buttons/inputs.
          */
-        function toggleLoading(show, context = 'all') {
+        function toggleLoading(show) {
             document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
 
             const allControls = [
@@ -452,7 +471,7 @@
                 document.getElementById('generateRandomCommitsButton'),
                 document.getElementById('applyPatternButton'),
                 document.getElementById('previewHeatmapButton'),
-                document.getElementById('loadRealHeatmapButton'), // New button
+                document.getElementById('loadRealHeatmapButton'),
                 document.getElementById('token'),
                 document.getElementById('username'),
                 document.getElementById('repo'),
@@ -636,7 +655,7 @@
          * Simulates past commits by creating multiple commits with messages and content
          * containing randomly generated past dates within a specified range.
          */
-        async function generateRandomHistoricCommits() { // Renamed from simulatePastCommits
+        async function generateRandomHistoricCommits() {
             const numCommits = parseInt(document.getElementById("numSimulatedCommits").value);
             const simulatedStartDateStr = document.getElementById("simulatedStartDate").value;
             const simulatedEndDateStr = document.getElementById("simulatedEndDate").value;
@@ -930,7 +949,7 @@
                 yearAgo.setFullYear(now.getFullYear() - 1);
 
                 const startRange = firstEventDate < yearAgo ? firstEventDate : yearAgo; // Start at least a year ago or from first event
-                const endRange = lastEventDate > now ? lastEventDate : now; // End at current date or last event
+                const endRange = lastEventDate > now ? lastDate : now; // End at current date or last event
 
                 const cal = new CalHeatmap();
                 cal.init({
@@ -955,7 +974,6 @@
                     cellPadding: 2,
                     colLimit: 13,
                     animationDuration: 500,
-                    // Optional: customize colors for real heatmap
                     // colors: {
                     //     min: "#ebedf0",
                     //     max: "#0e4429",
@@ -997,12 +1015,35 @@
         document.getElementById("loadRealHeatmapButton").addEventListener("click", loadRealContributionHeatmap);
 
 
+        // Tab switching logic
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.dataset.tab;
+
+                // Deactivate all tab buttons and content
+                document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+                // Activate the clicked tab button and content
+                button.classList.add('active');
+                document.getElementById(tabId).classList.add('active');
+
+                // If switching to heatmaps tab, automatically load real heatmap if username is present
+                if (tabId === 'heatmaps' && document.getElementById('username').value.trim() !== '') {
+                    loadRealContributionHeatmap();
+                }
+            });
+        });
+
+
         // Initial setup on window load
         window.onload = () => {
             loadSettingsFromStorage();
             // Load repos after token and username might have been loaded from storage
             // Add a small delay to ensure inputs are populated if from storage
             setTimeout(loadUserRepos, 100);
+            // Activate the first tab by default
+            document.querySelector('.tab-button[data-tab="main-controls"]').click();
         };
 
         // Service Worker Registration
