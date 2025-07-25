@@ -120,6 +120,16 @@
                         <option value="days">Days</option>
                     </select>
                 </div>
+
+                <!-- ✅ Safe Mode Toggle and Logic -->
+                <div class="mt-4">
+                    <label class="inline-flex items-center space-x-2">
+                        <input type="checkbox" id="safeMode" class="h-5 w-5 text-blue-600 border-gray-300 rounded"/>
+                        <span class="text-sm font-medium">🛡️ Enable Safe Mode (Human-like Behavior)</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1 ml-7">Adds random delays, varied messages, and commit pacing to avoid bot patterns.</p>
+                </div>
+
                 <button onclick="toggleAutoCommit()" id="toggleAutoCommitButton"
                         class="w-full bg-green-600 text-white py-3 rounded-md font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
                     Toggle Auto Commit
@@ -242,6 +252,54 @@
     <!-- Cal-Heatmap JS -->
     <script src="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.min.js"></script>
     <script>
+        // NEW SAFE MODE JAVASCRIPT START
+        let safeModeEnabled = false; // Controlled by checkbox
+        let safeModeLoopActive = false; // Controlled by toggleAutoCommit to start/stop the loop
+
+        document.getElementById('safeMode').addEventListener('change', (e) => {
+            safeModeEnabled = e.target.checked;
+            console.log('Safe Mode:', safeModeEnabled);
+            // If safe mode is toggled off while auto-commit is running in safe mode, stop it.
+            if (!safeModeEnabled && safeModeLoopActive) {
+                // This will trigger the toggleAutoCommit to turn off the running safe mode loop
+                toggleAutoCommit();
+            }
+        });
+
+        const jitter = (base, maxJitter = 60) => base + Math.floor(Math.random() * maxJitter);
+        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        const baseInterval = 20 * 60 * 1000; // 20 minutes
+
+        function generateSafeCommitMessage() {
+            const verbs = ["updated", "logged", "noted", "refreshed", "synced"];
+            const subjects = ["stats", "report", "commit log", "daily file", "metadata"];
+            const extras = ["via bot", "manually", "(auto)", "", "#safe"];
+            return `chore: ${verbs[Math.floor(Math.random()*verbs.length)]} ${subjects[Math.floor(Math.random()*subjects.length)]} ${extras[Math.floor(Math.random()*extras.length)]}`.trim();
+        }
+
+        // Modified Auto Commit with Safe Mode
+        async function safeAutoCommitLoop(repos) {
+            while (safeModeLoopActive) { // Use safeModeLoopActive to control the loop
+                const wait = jitter(baseInterval, 10 * 60 * 1000); // jitter up to +10min
+                const selectedRepo = repos[Math.floor(Math.random() * repos.length)];
+                const message = generateSafeCommitMessage();
+                console.log(`⏳ Safe Mode: Waiting ${Math.round(wait / 60000)} min before next commit to ${selectedRepo}...`);
+                showStatusMessage(`⏳ Safe Mode: Waiting ${Math.round(wait / 60000)} min before next commit to ${selectedRepo}...`, "info");
+                await delay(wait);
+
+                if (!safeModeLoopActive) { // Check again after delay, in case it was stopped during delay
+                    console.log("Safe Mode Auto Commit loop stopped during delay.");
+                    break;
+                }
+
+                // Call commitToGitHub with the generated safe message
+                await commitToGitHub(null, null, selectedRepo, message); // Pass selectedRepo and message
+            }
+            console.log("Safe Mode Auto Commit loop finished.");
+            showStatusMessage("Safe Mode Auto Commit loop finished.", "info");
+        }
+        // NEW SAFE MODE JAVASCRIPT END
+
         const randomMessages = [
             "chore: daily sync",
             "docs: updated readme",
@@ -496,7 +554,8 @@
                 document.getElementById('simulatedEndDate'),
                 document.getElementById('streakPatternSelect'),
                 document.getElementById('commitContext'),
-                document.getElementById('generateMessageButton')
+                document.getElementById('generateMessageButton'),
+                document.getElementById('safeMode') // Also disable safe mode checkbox
             ];
 
             allControls.forEach(control => {
@@ -517,15 +576,17 @@
          * Handles the commit process to GitHub.
          * @param {string} [targetFilePath] The file path to commit to. Defaults to main filepath.
          * @param {string} [dateForMessage] Optional date string to include in the commit message/content for simulation.
+         * @param {string} [repoOverride] Optional: specific repo to commit to (used by safe mode).
+         * @param {string} [commitMessageOverride] Optional: specific commit message (used by safe mode).
          */
-        async function commitToGitHub(targetFilePath = null, dateForMessage = null) {
+        async function commitToGitHub(targetFilePath = null, dateForMessage = null, repoOverride = null, commitMessageOverride = null) {
             const token = document.getElementById("token").value.trim();
-            const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
+            let selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
             const branch = document.getElementById("branch").value.trim();
             const path = targetFilePath || document.getElementById("filepath").value.trim(); // Use main filepath
             let contentInput = document.getElementById("content").value;
 
-            if (selectedRepos.length === 0) {
+            if (selectedRepos.length === 0 && !repoOverride) {
                 showStatusMessage("Please select at least one repository.", "error");
                 return false;
             }
@@ -534,12 +595,13 @@
                 return false; // Indicate failure
             }
 
-            // Randomly pick one repository from the selected list
-            const repo = selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
+            // Determine the target repository
+            const repo = repoOverride || selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
 
             saveSettingsToStorage(); // Save settings on successful input
 
-            if (!dateForMessage) { // Only show loading for single manual commit
+            // Only show loading indicator for single manual commit
+            if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) { // commitMessageOverride implies safe mode or similar auto-process
                 toggleLoading(true);
                 showStatusMessage(`Attempting to commit to ${repo}...`, "info");
             }
@@ -554,7 +616,10 @@
             let finalContent;
             let commitMessage;
 
-            if (contentInput === '' || dateForMessage) { // If user content is empty OR we are simulating past commits
+            if (commitMessageOverride) { // If safe mode or other auto-process provided a message
+                commitMessage = commitMessageOverride;
+                finalContent = `# Auto Commit\n\n${commitMessageOverride}\n\nUpdated on ${new Date().toLocaleString()}`;
+            } else if (contentInput === '' || dateForMessage) { // If user content is empty OR we are simulating past commits
                  const messagePart = randomMessages[Math.floor(Math.random() * randomMessages.length)];
                  finalContent = `# ${messagePart}\n\nUpdated on ${dateForMessage || new Date().toLocaleString()}`;
                  commitMessage = `${messagePart} - ${dateForMessage || new Date().toLocaleString()}`;
@@ -598,8 +663,10 @@
                 const result = await putRes.json();
 
                 if (putRes.ok) {
-                    if (!dateForMessage) { // Only show detailed success for single manual commit
+                    if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
                         showStatusMessage(`✅ Commit successful to ${repo}! Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
+                    } else if (safeModeLoopActive || commitMessageOverride) {
+                        console.log(`✅ Auto Commit successful to ${repo}: ${commitMessage}`);
                     }
                     return true; // Indicate success
                 } else {
@@ -607,57 +674,81 @@
                 }
             } catch (error) {
                 console.error("Commit failed:", error);
-                if (!dateForMessage) { // Only show detailed error for single manual commit
+                if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
                     showStatusMessage(`❌ Commit failed to ${repo}: ${error.message}`, "error");
+                } else if (safeModeLoopActive || commitMessageOverride) {
+                    console.error(`❌ Auto Commit failed to ${repo}: ${error.message}`);
                 }
                 return false; // Indicate failure
             } finally {
-                if (!dateForMessage) { // Only hide loading for single manual commit
+                if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
                     toggleLoading(false);
                 }
             }
         }
 
         /**
-         * Toggles the daily auto-commit feature based on user-defined interval.
+         * Toggles the daily auto-commit feature based on user-defined interval or safe mode.
          */
-        function toggleAutoCommit() {
-            if (autoCommitInterval) {
-                clearInterval(autoCommitInterval);
-                autoCommitInterval = null;
-                document.getElementById("toggleAutoCommitButton").textContent = "Toggle Auto Commit";
-                document.getElementById("toggleAutoCommitButton").classList.remove('bg-red-600', 'hover:bg-red-700');
-                document.getElementById("toggleAutoCommitButton").classList.add('bg-green-600', 'hover:bg-green-700');
-                showStatusMessage("❌ Auto Commit Disabled", "error");
-            } else {
-                const intervalValue = parseInt(document.getElementById("intervalValue").value);
-                const intervalType = document.getElementById("intervalType").value;
+        async function toggleAutoCommit() {
+            const toggleButton = document.getElementById("toggleAutoCommitButton");
+            const intervalValue = parseInt(document.getElementById("intervalValue").value);
+            const intervalType = document.getElementById("intervalType").value;
+            const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
 
-                if (isNaN(intervalValue) || intervalValue <= 0) {
-                    showStatusMessage("Please enter a valid positive number for the interval.", "error");
+            // If auto-commit is currently ON (either mode)
+            if (autoCommitInterval !== null || safeModeLoopActive) {
+                // Stop any running auto-commit
+                if (autoCommitInterval !== null) {
+                    clearInterval(autoCommitInterval);
+                    autoCommitInterval = null;
+                }
+                if (safeModeLoopActive) {
+                    safeModeLoopActive = false; // Signal safeAutoCommitLoop to stop
+                    // Give a small delay for the async loop to truly exit
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+
+                toggleButton.textContent = "Toggle Auto Commit";
+                toggleButton.classList.remove('bg-red-600', 'hover:bg-red-700');
+                toggleButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                showStatusMessage("❌ Auto Commit Disabled", "error");
+            } else { // If auto-commit is currently OFF, start it
+                if (selectedRepos.length === 0) {
+                    showStatusMessage("Please select at least one repository for auto-commit.", "error");
                     return;
                 }
 
-                let intervalMilliseconds = 0;
-                switch (intervalType) {
-                    case "minutes":
-                        intervalMilliseconds = intervalValue * 60 * 1000;
-                        break;
-                    case "hours":
-                        intervalMilliseconds = intervalValue * 60 * 60 * 1000;
-                        break;
-                    case "days":
-                        intervalMilliseconds = intervalValue * 24 * 60 * 60 * 1000;
-                        break;
-                }
+                if (safeModeEnabled) {
+                    safeModeLoopActive = true;
+                    toggleButton.textContent = `Safe Mode Auto Commit ON`;
+                    toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
+                    showStatusMessage(`✅ Safe Mode Auto Commit Enabled. Committing to random repo with human-like delays.`, "success");
+                    // Start the safe mode loop, it will handle its own delays and commits
+                    // Do not await it here, let it run in the background
+                    safeAutoCommitLoop(selectedRepos);
+                } else {
+                    if (isNaN(intervalValue) || intervalValue <= 0) {
+                        showStatusMessage("Please enter a valid positive number for the interval.", "error");
+                        return;
+                    }
 
-                // Perform an immediate commit when starting auto-commit
-                commitToGitHub();
-                autoCommitInterval = setInterval(commitToGitHub, intervalMilliseconds);
-                document.getElementById("toggleAutoCommitButton").textContent = `Auto Commit ON (Next in ${intervalValue} ${intervalType})`;
-                document.getElementById("toggleAutoCommitButton").classList.remove('bg-green-600', 'hover:bg-green-700');
-                document.getElementById("toggleAutoCommitButton").classList.add('bg-red-600', 'hover:bg-red-700');
-                showStatusMessage(`✅ Auto Commit Enabled (Every ${intervalValue} ${intervalType})`, "success");
+                    let intervalMilliseconds = 0;
+                    switch (intervalType) {
+                        case "minutes": intervalMilliseconds = intervalValue * 60 * 1000; break;
+                        case "hours": intervalMilliseconds = intervalValue * 60 * 60 * 1000; break;
+                        case "days": intervalMilliseconds = intervalValue * 24 * 60 * 60 * 1000; break;
+                    }
+
+                    // Perform an immediate commit when starting auto-commit
+                    await commitToGitHub(); // Ensure initial commit finishes before setting interval
+                    autoCommitInterval = setInterval(() => commitToGitHub(), intervalMilliseconds);
+                    toggleButton.textContent = `Auto Commit ON (Every ${intervalValue} ${intervalType})`;
+                    toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
+                    showStatusMessage(`✅ Auto Commit Enabled (Every ${intervalValue} ${intervalType})`, "success");
+                }
             }
         }
 
