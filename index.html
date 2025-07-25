@@ -199,6 +199,15 @@
                     <p class="text-xs text-gray-500 mt-1 ml-7 dark:text-gray-400">Adds random delays, varied messages, and commit pacing to avoid bot patterns.</p>
                 </div>
 
+                <!-- Commit Preview Toggle -->
+                <div class="mt-4">
+                    <label class="inline-flex items-center space-x-2">
+                        <input type="checkbox" id="commitPreviewToggle" class="h-5 w-5 text-blue-600 border-gray-300 rounded dark:border-gray-600"/>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">👀 Enable Commit Preview</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1 ml-7 dark:text-gray-400">Show a preview modal before making a commit.</p>
+                </div>
+
                 <button onclick="toggleAutoCommit()" id="toggleAutoCommitButton"
                         class="w-full bg-green-600 text-white py-3 rounded-md font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
                     Toggle Auto Commit
@@ -351,6 +360,27 @@
         </p>
     </footer>
 
+    <!-- Commit Preview Modal -->
+    <div id="commitPreviewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-md dark:bg-gray-800 dark:text-white">
+            <h2 class="text-xl font-bold mb-2">Preview Commit</h2>
+            <div class="mb-4 text-sm">
+                <p class="text-gray-600 dark:text-gray-400"><strong>Repository:</strong> <span id="previewRepo"></span></p>
+                <p class="text-gray-600 dark:text-gray-400"><strong>Branch:</strong> <span id="previewBranch"></span></p>
+                <p class="text-gray-600 dark:text-gray-400"><strong>File Path:</strong> <span id="previewFilePath"></span></p>
+                <p class="text-gray-600 dark:text-gray-400"><strong>Message:</strong></p>
+                <textarea id="previewCommitMessage" class="w-full border border-gray-300 rounded p-2 mb-2 text-gray-800 dark:bg-gray-700 dark:border-gray-600 dark:text-white" rows="3"></textarea>
+                <p class="text-gray-600 dark:text-gray-400"><strong>Content Snippet:</strong></p>
+                <textarea id="previewContentSnippet" class="w-full border border-gray-300 rounded p-2 text-gray-800 dark:bg-gray-700 dark:border-gray-600 dark:text-white" rows="5" readonly></textarea>
+                <p id="previewCountdown" class="text-center text-gray-500 mt-2 dark:text-gray-400"></p>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button onclick="cancelCommitPreview()" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 transition duration-300 ease-in-out dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Cancel</button>
+                <button onclick="confirmCommitPreview()" class="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">Commit</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Cal-Heatmap JS -->
     <script src="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.min.js"></script>
     <script>
@@ -362,6 +392,9 @@
         let safeModeLoopActive = false; // Controlled by toggleAutoCommit to start/stop the loop
         let smartRotationEnabled = false; // NEW: Controlled by checkbox for smart rotation
         let currentRepoIndex = 0; // NEW: Index for smart rotation
+        let commitPreviewEnabled = false; // NEW: Controlled by checkbox for commit preview
+        let previewCommitDetails = {}; // Stores details for the commit preview modal
+        let countdownInterval = null; // For the countdown timer in the modal
 
         // Stats variables
         let totalCommits = 0;
@@ -384,6 +417,13 @@
         document.getElementById('smartRotation').addEventListener('change', (e) => {
             smartRotationEnabled = e.target.checked;
             if (window.debugMode) console.log('Smart Rotation:', smartRotationEnabled);
+            saveSettingsToStorage(); // Save preference
+        });
+
+        // NEW: Event listener for Commit Preview toggle
+        document.getElementById('commitPreviewToggle').addEventListener('change', (e) => {
+            commitPreviewEnabled = e.target.checked;
+            if (window.debugMode) console.log('Commit Preview:', commitPreviewEnabled);
             saveSettingsToStorage(); // Save preference
         });
 
@@ -439,7 +479,8 @@
                 }
 
                 // Call commitToGitHub with the generated safe message
-                await commitToGitHub(null, null, selectedRepo, message); // Pass selectedRepo and message
+                // Pass true for isAutoCommit to distinguish from manual commits for preview logic
+                await commitToGitHub(null, null, selectedRepo, message, true);
             }
             if (window.debugMode) console.log("Safe Mode Auto Commit loop finished.");
             showStatusMessage("Safe Mode Auto Commit loop finished.", "info");
@@ -488,6 +529,9 @@
                 localStorage.setItem("darkMode", document.documentElement.classList.contains("dark"));
                 // NEW: Save smart rotation preference
                 localStorage.setItem("smartRotation", document.getElementById("smartRotation").checked);
+                // NEW: Save commit preview preference
+                localStorage.setItem("commitPreview", document.getElementById("commitPreviewToggle").checked);
+
 
                 // Save stats data
                 localStorage.setItem("stats_totalCommits", totalCommits);
@@ -534,6 +578,10 @@
                 // NEW: Load smart rotation preference
                 smartRotationEnabled = localStorage.getItem("smartRotation") === "true";
                 document.getElementById("smartRotation").checked = smartRotationEnabled;
+                // NEW: Load commit preview preference
+                commitPreviewEnabled = localStorage.getItem("commitPreview") === "true";
+                document.getElementById("commitPreviewToggle").checked = commitPreviewEnabled;
+
 
                 // Load stats data
                 totalCommits = parseInt(localStorage.getItem("stats_totalCommits") || '0');
@@ -798,7 +846,8 @@
                 document.getElementById('safeMode'), // Also disable safe mode checkbox
                 document.getElementById('darkModeToggle'), // Disable dark mode toggle during loading
                 document.getElementById('smartRotation'), // Disable smart rotation toggle during loading
-                document.getElementById('resetStatsButton') // Disable reset stats button during loading
+                document.getElementById('resetStatsButton'), // Disable reset stats button during loading
+                document.getElementById('commitPreviewToggle') // NEW: Disable commit preview toggle during loading
             ];
 
             allControls.forEach(control => {
@@ -812,8 +861,112 @@
          * Handles a single manual commit to GitHub.
          */
         async function makeSingleCommit() {
-            await commitToGitHub();
+            // This function will now prepare the commit and then show the preview modal
+            // The actual commit will happen after confirmation from the modal
+            const token = document.getElementById("token").value.trim();
+            const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
+            const branch = document.getElementById("branch").value.trim();
+            const path = document.getElementById("filepath").value.trim();
+            let contentInput = document.getElementById("content").value;
+
+            if (selectedRepos.length === 0) {
+                showStatusMessage("Please select at least one repository.", "error");
+                return;
+            }
+            if (!token || !branch || !path) {
+                showStatusMessage("Please fill in all required fields: Token, Branch, and File Path.", "error");
+                return;
+            }
+
+            // Determine the target repository for this manual commit
+            let repo;
+            if (smartRotationEnabled && selectedRepos.length > 0) {
+                repo = selectedRepos[currentRepoIndex];
+                currentRepoIndex = (currentRepoIndex + 1) % selectedRepos.length;
+            } else {
+                repo = selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
+            }
+
+            let commitMessage;
+            if (contentInput === '') {
+                 const messagePart = randomMessages[Math.floor(Math.random() * randomMessages.length)];
+                 commitMessage = `${messagePart} - ${new Date().toLocaleString()}`;
+                 contentInput = `# ${messagePart}\n\nUpdated on ${new Date().toLocaleString()}`;
+            } else {
+                commitMessage = `${randomMessages[Math.floor(Math.random() * randomMessages.length)]} - ${new Date().toLocaleString()}`;
+            }
+
+            previewCommitDetails = {
+                repo: repo,
+                branch: branch,
+                path: path,
+                message: commitMessage,
+                content: contentInput,
+                isAutoCommit: false // This is a manual commit
+            };
+
+            if (commitPreviewEnabled) {
+                showCommitPreviewModal();
+            } else {
+                // If preview is off, commit directly
+                await commitToGitHub(path, null, repo, commitMessage, false);
+            }
         }
+
+        /**
+         * Displays the commit preview modal.
+         */
+        function showCommitPreviewModal() {
+            const modal = document.getElementById('commitPreviewModal');
+            document.getElementById('previewRepo').textContent = previewCommitDetails.repo;
+            document.getElementById('previewBranch').textContent = previewCommitDetails.branch;
+            document.getElementById('previewFilePath').textContent = previewCommitDetails.path;
+            document.getElementById('previewCommitMessage').value = previewCommitDetails.message;
+            document.getElementById('previewContentSnippet').value = previewCommitDetails.content.substring(0, 500) + (previewCommitDetails.content.length > 500 ? '...' : ''); // Show snippet
+
+            // Hide countdown for manual commits
+            document.getElementById('previewCountdown').textContent = '';
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+
+            modal.classList.remove('hidden');
+            toggleLoading(true); // Disable background interactions
+        }
+
+        /**
+         * Confirms the commit from the preview modal.
+         */
+        async function confirmCommitPreview() {
+            document.getElementById('commitPreviewModal').classList.add('hidden');
+            toggleLoading(false); // Re-enable background interactions
+
+            // Use the potentially edited message from the modal
+            previewCommitDetails.message = document.getElementById('previewCommitMessage').value;
+
+            await commitToGitHub(
+                previewCommitDetails.path,
+                null, // dateForMessage is not used here for manual/auto commits
+                previewCommitDetails.repo,
+                previewCommitDetails.message,
+                previewCommitDetails.isAutoCommit // Pass the original isAutoCommit flag
+            );
+        }
+
+        /**
+         * Cancels the commit from the preview modal.
+         */
+        function cancelCommitPreview() {
+            document.getElementById('commitPreviewModal').classList.add('hidden');
+            toggleLoading(false); // Re-enable background interactions
+            showStatusMessage("Commit cancelled by user.", "info");
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+        }
+
 
         /**
          * Handles the commit process to GitHub.
@@ -821,8 +974,9 @@
          * @param {string} [dateForMessage] Optional date string to include in the commit message/content for simulation.
          * @param {string} [repoOverride] Optional: specific repo to commit to (used by safe mode).
          * @param {string} [commitMessageOverride] Optional: specific commit message (used by safe mode).
+         * @param {boolean} [isAutoCommit=false] True if this commit is part of an automated process (e.g., safe mode, auto-commit interval).
          */
-        async function commitToGitHub(targetFilePath = null, dateForMessage = null, repoOverride = null, commitMessageOverride = null) {
+        async function commitToGitHub(targetFilePath = null, dateForMessage = null, repoOverride = null, commitMessageOverride = null, isAutoCommit = false) {
             const token = document.getElementById("token").value.trim();
             let selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
             const branch = document.getElementById("branch").value.trim();
@@ -851,8 +1005,8 @@
 
             saveSettingsToStorage(); // Save settings on successful input
 
-            // Only show loading indicator for single manual commit
-            if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) { // commitMessageOverride implies safe mode or similar auto-process
+            // Only show loading indicator for single manual commit if not using preview or auto-commit
+            if (!dateForMessage && !isAutoCommit && !commitPreviewEnabled) {
                 toggleLoading(true);
                 showStatusMessage(`Attempting to commit to ${repo}...`, "info");
             }
@@ -878,6 +1032,33 @@
                 finalContent = contentInput;
                 commitMessage = `${randomMessages[Math.floor(Math.random() * randomMessages.length)]} - ${new Date().toLocaleString()}`;
             }
+
+            // If commit preview is enabled and this is not a simulated historic commit, show preview first
+            if (commitPreviewEnabled && !dateForMessage && !isAutoCommit) {
+                previewCommitDetails = {
+                    repo: repo,
+                    branch: branch,
+                    path: path,
+                    message: commitMessage,
+                    content: finalContent,
+                    isAutoCommit: isAutoCommit // Pass the flag
+                };
+                showCommitPreviewModal();
+                return true; // Indicate that preview is shown, actual commit will happen later
+            } else if (commitPreviewEnabled && isAutoCommit) {
+                // For auto-commits with preview enabled, show countdown
+                previewCommitDetails = {
+                    repo: repo,
+                    branch: branch,
+                    path: path,
+                    message: commitMessage,
+                    content: finalContent,
+                    isAutoCommit: isAutoCommit
+                };
+                showCommitPreviewModalWithCountdown(repo, branch, path, commitMessage, finalContent);
+                return true; // Indicate that preview is shown, actual commit will happen after countdown
+            }
+
 
             const encodedContent = toBase64(finalContent);
 
@@ -920,7 +1101,7 @@
 
                     // Update stats
                     totalCommits++;
-                    if (safeModeLoopActive || commitMessageOverride) { // Assuming commitMessageOverride implies a "bot" commit for stats
+                    if (isAutoCommit) {
                         safeModeCommitCount++;
                     }
                     if (firstCommitDate === null) {
@@ -931,9 +1112,9 @@
                     saveSettingsToStorage(); // Save updated stats
                     updateStatsDisplay(); // Update stats UI
 
-                    if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
+                    if (!dateForMessage && !isAutoCommit) { // Only show full status for manual/non-simulated commits
                         showStatusMessage(`✅ Commit successful to ${repo}!\n<pre class="bg-gray-100 p-2 rounded mt-1 text-xs dark:bg-gray-700 dark:text-gray-300">${cliOutput}</pre>Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
-                    } else if (safeModeLoopActive || commitMessageOverride) {
+                    } else if (isAutoCommit) {
                         if (window.debugMode) console.log(`✅ Auto Commit successful to ${repo}: ${commitMessage}`);
                         const safeModeLog = document.getElementById('safeModeLog');
                         const listItem = document.createElement('li');
@@ -949,9 +1130,9 @@
                 }
             } catch (error) {
                 console.error("Commit failed:", error);
-                if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
+                if (!dateForMessage && !isAutoCommit) {
                     showStatusMessage(`❌ Commit failed to ${repo}: ${error.message}`, "error");
-                } else if (safeModeLoopActive || commitMessageOverride) {
+                } else if (isAutoCommit) {
                     if (window.debugMode) console.error(`❌ Auto Commit failed to ${repo}: ${error.message}`);
                     const safeModeLog = document.getElementById('safeModeLog');
                     const listItem = document.createElement('li');
@@ -964,11 +1145,50 @@
                 }
                 return false; // Indicate failure
             } finally {
-                if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
+                if (!dateForMessage && !isAutoCommit) {
                     toggleLoading(false);
                 }
             }
         }
+
+        /**
+         * Displays the commit preview modal with a countdown for auto-commits.
+         * @param {string} repo The repository name.
+         * @param {string} branch The branch name.
+         * @param {string} path The file path.
+         * @param {string} message The commit message.
+         * @param {string} content The file content.
+         */
+        function showCommitPreviewModalWithCountdown(repo, branch, path, message, content) {
+            const modal = document.getElementById('commitPreviewModal');
+            document.getElementById('previewRepo').textContent = repo;
+            document.getElementById('previewBranch').textContent = branch;
+            document.getElementById('previewFilePath').textContent = path;
+            document.getElementById('previewCommitMessage').value = message;
+            document.getElementById('previewContentSnippet').value = content.substring(0, 500) + (content.length > 500 ? '...' : '');
+
+            const countdownElement = document.getElementById('previewCountdown');
+            let timeLeft = 10; // 10 seconds countdown
+
+            modal.classList.remove('hidden');
+            toggleLoading(true); // Disable background interactions
+
+            countdownElement.textContent = `Auto-committing in ${timeLeft}s...`;
+
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                countdownElement.textContent = `Auto-committing in ${timeLeft}s...`;
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                    modal.classList.add('hidden');
+                    toggleLoading(false); // Re-enable background interactions
+                    // Automatically trigger the commit
+                    commitToGitHub(path, null, repo, message, true); // Pass true for isAutoCommit
+                }
+            }, 1000);
+        }
+
 
         /**
          * Toggles the daily auto-commit feature based on user-defined interval or safe mode.
@@ -1024,8 +1244,8 @@
                     }
 
                     // Perform an immediate commit when starting auto-commit
-                    await commitToGitHub(); // Ensure initial commit finishes before setting interval
-                    autoCommitInterval = setInterval(() => commitToGitHub(), intervalMilliseconds);
+                    await commitToGitHub(null, null, null, null, true); // Pass true for isAutoCommit
+                    autoCommitInterval = setInterval(() => commitToGitHub(null, null, null, null, true), intervalMilliseconds); // Pass true for isAutoCommit
                     toggleButton.textContent = `Auto Commit ON (Every ${intervalValue} ${intervalType})`;
                     toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
                     toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
