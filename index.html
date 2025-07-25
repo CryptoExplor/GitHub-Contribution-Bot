@@ -137,6 +137,14 @@
                     Toggle Auto Commit
                 </button>
             </div>
+            <!-- Safe Mode Activity Log -->
+            <div class="mt-6 border-t border-gray-200 pt-4">
+                <h3 class="text-lg font-semibold mb-2 text-gray-800">Safe Mode Activity Log</h3>
+                <ul id="safeModeLog" class="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-48 text-gray-700 space-y-1">
+                    <!-- Log entries will be appended here -->
+                    <li class="text-gray-500">No Safe Mode activity yet.</li>
+                </ul>
+            </div>
         </div>
 
         <div id="historic-commits" class="tab-content space-y-4">
@@ -263,13 +271,16 @@
     <!-- Cal-Heatmap JS -->
     <script src="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.min.js"></script>
     <script>
+        // Global debug mode toggle
+        window.debugMode = true; // Set to false for production to reduce console output
+
         // NEW SAFE MODE JAVASCRIPT START
         let safeModeEnabled = false; // Controlled by checkbox
         let safeModeLoopActive = false; // Controlled by toggleAutoCommit to start/stop the loop
 
         document.getElementById('safeMode').addEventListener('change', (e) => {
             safeModeEnabled = e.target.checked;
-            console.log('Safe Mode:', safeModeEnabled);
+            if (window.debugMode) console.log('Safe Mode:', safeModeEnabled);
             // If safe mode is toggled off while auto-commit is running in safe mode, stop it.
             if (!safeModeEnabled && safeModeLoopActive) {
                 // This will trigger the toggleAutoCommit to turn off the running safe mode loop
@@ -290,23 +301,39 @@
 
         // Modified Auto Commit with Safe Mode
         async function safeAutoCommitLoop(repos) {
+            const safeModeLog = document.getElementById('safeModeLog');
+            // Clear initial message
+            if (safeModeLog.children.length === 1 && safeModeLog.children[0].textContent === 'No Safe Mode activity yet.') {
+                safeModeLog.innerHTML = '';
+            }
+
             while (safeModeLoopActive) { // Use safeModeLoopActive to control the loop
                 const wait = jitter(baseInterval, 10 * 60 * 1000); // jitter up to +10min
                 const selectedRepo = repos[Math.floor(Math.random() * repos.length)];
                 const message = generateSafeCommitMessage();
-                console.log(`⏳ Safe Mode: Waiting ${Math.round(wait / 60000)} min before next commit to ${selectedRepo}...`);
-                showStatusMessage(`⏳ Safe Mode: Waiting ${Math.round(wait / 60000)} min before next commit to ${selectedRepo}...`, "info");
+                if (window.debugMode) console.log(`⏳ Safe Mode: Waiting ${Math.round(wait / 60000)} min before next commit to ${selectedRepo}...`);
+                
+                const waitMessage = `⏳ ${new Date().toLocaleTimeString()}: Waiting ${Math.round(wait / 60000)} min before next commit to ${selectedRepo}...`;
+                const listItem = document.createElement('li');
+                listItem.textContent = waitMessage;
+                safeModeLog.prepend(listItem); // Add to top of the log
+                // Keep log to max 10 items
+                while (safeModeLog.children.length > 10) {
+                    safeModeLog.removeChild(safeModeLog.lastChild);
+                }
+
+
                 await delay(wait);
 
                 if (!safeModeLoopActive) { // Check again after delay, in case it was stopped during delay
-                    console.log("Safe Mode Auto Commit loop stopped during delay.");
+                    if (window.debugMode) console.log("Safe Mode Auto Commit loop stopped during delay.");
                     break;
                 }
 
                 // Call commitToGitHub with the generated safe message
                 await commitToGitHub(null, null, selectedRepo, message); // Pass selectedRepo and message
             }
-            console.log("Safe Mode Auto Commit loop finished.");
+            if (window.debugMode) console.log("Safe Mode Auto Commit loop finished.");
             showStatusMessage("Safe Mode Auto Commit loop finished.", "info");
         }
         // NEW SAFE MODE JAVASCRIPT END
@@ -347,6 +374,8 @@
                 localStorage.setItem("gh_simulatedEndDate", document.getElementById("simulatedEndDate").value.trim());
                 localStorage.setItem("gh_streakPatternSelect", document.getElementById("streakPatternSelect").value.trim());
                 localStorage.setItem("gh_commitContext", document.getElementById("commitContext").value.trim()); // Save new input
+                // Save Gemini API Key if user provides it
+                localStorage.setItem("gemini_api_key", document.getElementById("geminiApiKey")?.value.trim() || '');
 
                 // No status message here to avoid spamming on every input change
             } catch (e) {
@@ -375,6 +404,10 @@
                 document.getElementById("simulatedEndDate").value = localStorage.getItem("gh_simulatedEndDate") || '';
                 document.getElementById("streakPatternSelect").value = localStorage.getItem("gh_streakPatternSelect") || 'random'; // Default to random
                 document.getElementById("commitContext").value = localStorage.getItem("gh_commitContext") || ''; // Load new input
+                // Load Gemini API Key
+                if (document.getElementById("geminiApiKey")) {
+                    document.getElementById("geminiApiKey").value = localStorage.getItem("gemini_api_key") || '';
+                }
             } catch (e) {
                 console.error("Failed to load settings from local storage:", e);
                 showStatusMessage("Error loading settings locally. Please enter them manually.", "error");
@@ -674,10 +707,21 @@
                 const result = await putRes.json();
 
                 if (putRes.ok) {
+                    const commitHash = result.commit.sha.substring(0, 7); // Get short hash
+                    const commitRepo = repo.split('/')[1]; // Get repo name
+                    const cliOutput = `[${branch} ${commitHash}] ${commitMessage}\n 1 file changed, 1 insertion(+)`;
+
                     if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
-                        showStatusMessage(`✅ Commit successful to ${repo}! Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
+                        showStatusMessage(`✅ Commit successful to ${repo}!\n<pre class="bg-gray-100 p-2 rounded mt-1 text-xs">${cliOutput}</pre>Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
                     } else if (safeModeLoopActive || commitMessageOverride) {
-                        console.log(`✅ Auto Commit successful to ${repo}: ${commitMessage}`);
+                        if (window.debugMode) console.log(`✅ Auto Commit successful to ${repo}: ${commitMessage}`);
+                        const safeModeLog = document.getElementById('safeModeLog');
+                        const listItem = document.createElement('li');
+                        listItem.innerHTML = `✅ ${new Date().toLocaleTimeString()}: Commit to <b>${commitRepo}</b>: <code>${commitMessage}</code>`;
+                        safeModeLog.prepend(listItem);
+                        while (safeModeLog.children.length > 10) {
+                            safeModeLog.removeChild(safeModeLog.lastChild);
+                        }
                     }
                     return true; // Indicate success
                 } else {
@@ -688,7 +732,15 @@
                 if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
                     showStatusMessage(`❌ Commit failed to ${repo}: ${error.message}`, "error");
                 } else if (safeModeLoopActive || commitMessageOverride) {
-                    console.error(`❌ Auto Commit failed to ${repo}: ${error.message}`);
+                    if (window.debugMode) console.error(`❌ Auto Commit failed to ${repo}: ${error.message}`);
+                    const safeModeLog = document.getElementById('safeModeLog');
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = `❌ ${new Date().toLocaleTimeString()}: Commit to <b>${repo.split('/')[1]}</b> failed: ${error.message}`;
+                    listItem.classList.add('text-red-500');
+                    safeModeLog.prepend(listItem);
+                    while (safeModeLog.children.length > 10) {
+                        safeModeLog.removeChild(safeModeLog.lastChild);
+                    }
                 }
                 return false; // Indicate failure
             } finally {
@@ -736,8 +788,7 @@
                     toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
                     toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
                     showStatusMessage(`✅ Safe Mode Auto Commit Enabled. Committing to random repo with human-like delays.`, "success");
-                    // Start the safe mode loop, it will handle its own delays and commits
-                    // Do not await it here, let it run in the background
+                    // Start the safe mode loop, it will handle its own delays and and initial commit
                     safeAutoCommitLoop(selectedRepos);
                 } else {
                     if (isNaN(intervalValue) || intervalValue <= 0) {
@@ -972,7 +1023,11 @@
                     const res = await fetch(`https://api.github.com/users/${username}/events?page=${page}&per_page=100`, { headers });
                     if (!res.ok) {
                         const errorData = await res.json();
-                        throw new Error(`Failed to fetch events: ${errorData.message || res.statusText}`);
+                        // Enhanced error message for rate limits
+                        if (res.status === 403 && errorData.message && errorData.message.includes('API rate limit exceeded')) {
+                            throw new Error("GitHub API rate limit exceeded. Please try again after a few minutes.");
+                        }
+                        throw new Error(errorData.message || "Failed to fetch events.");
                     }
                     const events = await res.json();
 
@@ -1052,6 +1107,26 @@
         }
 
         /**
+         * Returns a random fallback commit message.
+         * @returns {string} A random commit message.
+         */
+        function getRandomFallbackMessage() {
+            const fallbackMessages = [
+                "feat: add new feature",
+                "fix: resolve bug",
+                "docs: update documentation",
+                "chore: routine maintenance",
+                "style: code formatting",
+                "refactor: improve code structure",
+                "test: add new tests",
+                "build: update dependencies",
+                "perf: optimize performance",
+                "ci: update CI config"
+            ];
+            return fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
+        }
+
+        /**
          * Generates a smart commit message using the Gemini API based on user-provided context.
          */
         async function generateSmartCommitMessage() {
@@ -1070,7 +1145,15 @@
                 let chatHistory = [];
                 chatHistory.push({ role: "user", parts: [{ text: `Generate a concise and descriptive GitHub commit message (max 10 words, start with a conventional commit prefix like 'feat:', 'fix:', 'docs:', 'chore:') based on the following context: "${commitContext}"` }] });
                 const payload = { contents: chatHistory };
-                const apiKey = ""; // Canvas will automatically provide this in runtime
+                const apiKey = localStorage.getItem("gemini_api_key") || ""; // Read from localStorage or empty
+
+                if (!apiKey) {
+                    showStatusMessage("Gemini API Key is missing. Please provide it in local storage or environment variables.", "error");
+                    contentTextArea.value = getRandomFallbackMessage(); // Fallback
+                    toggleLoading(false);
+                    return;
+                }
+
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
                 const response = await fetch(apiUrl, {
@@ -1088,12 +1171,14 @@
                     contentTextArea.value = generatedMessage; // Populate the content textarea
                     showStatusMessage("✨ Smart commit message generated successfully!", "success");
                 } else {
-                    showStatusMessage("❌ Failed to generate smart commit message. Unexpected API response.", "error");
-                    console.error("Gemini API response structure unexpected:", result);
+                    showStatusMessage("❌ Failed to generate smart commit message. Using fallback.", "error");
+                    if (window.debugMode) console.error("Gemini API response structure unexpected:", result);
+                    contentTextArea.value = getRandomFallbackMessage(); // Fallback
                 }
             } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                showStatusMessage(`❌ Error generating smart commit message: ${error.message}`, "error");
+                if (window.debugMode) console.error("Error calling Gemini API:", error);
+                showStatusMessage(`❌ Error generating smart commit message: ${error.message}. Using fallback.`, "error");
+                contentTextArea.value = getRandomFallbackMessage(); // Fallback
             } finally {
                 toggleLoading(false);
             }
