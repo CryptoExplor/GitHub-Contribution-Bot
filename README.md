@@ -38,11 +38,11 @@ Click the fork button on GitHub to make your own editable copy of this project.
 
 ## 🔑 How to Generate Your GitHub Token
 
-1. Go to: [https://github.com/settings/tokens](https://github.com/settings/tokens)
-2. Click **"Generate new token (Classic)"**
-3. Enable the following scope:
-   - ✅ `repo`
-4. (Optional) Set a custom expiration
+1. Go to: [https://github.com/settings/tokens](https://github.com/settings/tokens)  
+2. Click **"Generate new token (Classic)"**  
+3. Enable the following scope:  
+   - ✅ `repo`  
+4. (Optional) Set a custom expiration  
 5. Copy the token and paste it into the bot UI
 
 > ℹ️ Your token is stored **only in your browser**, never uploaded anywhere.
@@ -72,6 +72,28 @@ npx serve
 
 ---
 
+## 📚 About This Project
+
+This **GitHub Auto Commit Bot** is a side project built with ❤️ by [**FarmLabs**](https://github.com/CryptoExplor). It's designed to help developers **automate and visualize** their GitHub contribution graph with style and intelligence.
+
+### ✨ Why This Bot?
+
+* To maintain streaks with ease (even across multiple repos)
+* To simulate commit patterns without relying on CLI tools
+* To give users full control over their contribution heatmap
+
+### 🧠 Powered by Gemini AI
+
+This tool uses the **Gemini API** to generate **context-aware commit messages**, making your activity logs more human-like and less repetitive.
+
+---
+
+### 🔗 Connect with the Developer
+
+* [Telegram – @dare_3](https://t.me/dare_3)
+
+---
+
 ## 👥 Contributors
 
 * 💻 Built and maintained by [@CryptoExplor](https://github.com/CryptoExplor)
@@ -82,3 +104,5 @@ npx serve
 ## 📄 License
 
 MIT © 2025 CryptoExplor
+
+```
