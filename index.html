@@ -180,6 +180,15 @@
                     </select>
                 </div>
 
+                <!-- Smart Rotation Toggle -->
+                <div class="mt-4">
+                    <label class="inline-flex items-center space-x-2">
+                        <input type="checkbox" id="smartRotation" class="h-5 w-5 text-blue-600 border-gray-300 rounded dark:border-gray-600"/>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">🔄 Enable Smart Rotation (Round-Robin Repos)</span>
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1 ml-7 dark:text-gray-400">Cycles through selected repositories for even distribution of commits.</p>
+                </div>
+
                 <!-- ✅ Safe Mode Toggle and Logic -->
                 <div class="mt-4">
                     <label class="inline-flex items-center space-x-2">
@@ -334,6 +343,8 @@
         // NEW SAFE MODE JAVASCRIPT START
         let safeModeEnabled = false; // Controlled by checkbox
         let safeModeLoopActive = false; // Controlled by toggleAutoCommit to start/stop the loop
+        let smartRotationEnabled = false; // NEW: Controlled by checkbox for smart rotation
+        let currentRepoIndex = 0; // NEW: Index for smart rotation
 
         document.getElementById('safeMode').addEventListener('change', (e) => {
             safeModeEnabled = e.target.checked;
@@ -343,6 +354,13 @@
                 // This will trigger the toggleAutoCommit to turn off the running safe mode loop
                 toggleAutoCommit();
             }
+        });
+
+        // NEW: Event listener for Smart Rotation toggle
+        document.getElementById('smartRotation').addEventListener('change', (e) => {
+            smartRotationEnabled = e.target.checked;
+            if (window.debugMode) console.log('Smart Rotation:', smartRotationEnabled);
+            saveSettingsToStorage(); // Save preference
         });
 
         const jitter = (base, maxJitter = 60) => base + Math.floor(Math.random() * maxJitter);
@@ -366,7 +384,16 @@
 
             while (safeModeLoopActive) { // Use safeModeLoopActive to control the loop
                 const wait = jitter(baseInterval, 10 * 60 * 1000); // jitter up to +10min
-                const selectedRepo = repos[Math.floor(Math.random() * repos.length)];
+                
+                // NEW: Smart Rotation logic for selecting repo
+                let selectedRepo;
+                if (smartRotationEnabled && repos.length > 0) {
+                    selectedRepo = repos[currentRepoIndex];
+                    currentRepoIndex = (currentRepoIndex + 1) % repos.length; // Move to next repo, loop back if end reached
+                } else {
+                    selectedRepo = repos[Math.floor(Math.random() * repos.length)];
+                }
+
                 const message = generateSafeCommitMessage();
                 if (window.debugMode) console.log(`⏳ Safe Mode: Waiting ${Math.round(wait / 60000)} min before next commit to ${selectedRepo}...`);
                 
@@ -388,7 +415,7 @@
                 }
 
                 // Call commitToGitHub with the generated safe message
-                await commitToRepo(null, null, selectedRepo, message); // Pass selectedRepo and message
+                await commitToGitHub(null, null, selectedRepo, message); // Pass selectedRepo and message
             }
             if (window.debugMode) console.log("Safe Mode Auto Commit loop finished.");
             showStatusMessage("Safe Mode Auto Commit loop finished.", "info");
@@ -435,6 +462,9 @@
                 localStorage.setItem("gemini_api_key", document.getElementById("geminiApiKey")?.value.trim() || '');
                 // Save dark mode preference
                 localStorage.setItem("darkMode", document.documentElement.classList.contains("dark"));
+                // NEW: Save smart rotation preference
+                localStorage.setItem("smartRotation", document.getElementById("smartRotation").checked);
+
 
                 // No status message here to avoid spamming on every input change
             } catch (e) {
@@ -471,6 +501,10 @@
                 const isDarkMode = localStorage.getItem("darkMode") === "true";
                 document.documentElement.classList.toggle("dark", isDarkMode);
                 document.getElementById("darkModeToggle").checked = isDarkMode;
+                // NEW: Load smart rotation preference
+                smartRotationEnabled = localStorage.getItem("smartRotation") === "true";
+                document.getElementById("smartRotation").checked = smartRotationEnabled;
+
 
             } catch (e) {
                 console.error("Failed to load settings from local storage:", e);
@@ -665,7 +699,8 @@
                 document.getElementById('commitContext'),
                 document.getElementById('generateMessageButton'),
                 document.getElementById('safeMode'), // Also disable safe mode checkbox
-                document.getElementById('darkModeToggle') // Disable dark mode toggle during loading
+                document.getElementById('darkModeToggle'), // Disable dark mode toggle during loading
+                document.getElementById('smartRotation') // NEW: Disable smart rotation toggle during loading
             ];
 
             allControls.forEach(control => {
@@ -706,7 +741,15 @@
             }
 
             // Determine the target repository
-            const repo = repoOverride || selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
+            let repo;
+            if (repoOverride) { // If safe mode or other auto-process provided a repo
+                repo = repoOverride;
+            } else if (smartRotationEnabled && selectedRepos.length > 0) { // NEW: Smart Rotation for manual commits
+                repo = selectedRepos[currentRepoIndex];
+                currentRepoIndex = (currentRepoIndex + 1) % selectedRepos.length; // Move to next repo, loop back if end reached
+            } else { // Random selection for manual commits if smart rotation is off
+                repo = selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
+            }
 
             saveSettingsToStorage(); // Save settings on successful input
 
