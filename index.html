@@ -48,7 +48,9 @@
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tl-lg hover:bg-gray-100 active" data-tab="main-controls">Main Controls</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100" data-tab="historic-commits">Historic Commits</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100" data-tab="heatmaps">Heatmaps</button>
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100" data-tab="about">About</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100" data-tab="about">About</button>
+            <!-- NEW: User Guide Tab Button -->
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100" data-tab="user-guide">User Guide</button>
         </div>
 
         <!-- Tab Content -->
@@ -226,6 +228,15 @@
             </p>
             <p class="text-gray-700">
                 This tool leverages the power of the Gemini API for smart commit message generation, providing a more intelligent and personalized experience.
+            </p>
+        </div>
+
+        <!-- NEW: User Guide Tab Content -->
+        <div id="user-guide" class="tab-content space-y-4">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800">User Guide</h3>
+            <p class="text-gray-700">
+                For a detailed guide on how to use this bot and create a GitHub Personal Access Token, please visit our dedicated guide page:
+                <a href="guide.html" target="_blank" class="text-blue-600 hover:underline font-semibold">Open User Guide (guide.html)</a>
             </p>
         </div>
 
@@ -903,7 +914,7 @@
                 range: 12, // Show 12 months (a year)
                 start: new Date(endRange.getFullYear(), endRange.getMonth() - 11, 1), // Start 11 months before the end date to show a full year
                 data: data,
-                legend: [1, 2, 3, 4], // Example legend for commit counts
+                legend: [1, 2, 3, 4],
                 tooltip: true,
                 displayLegend: true,
                 verticalOrientation: false,
@@ -914,9 +925,9 @@
                     empty: "{date}",
                     filled: "{count} commits on {date}"
                 },
-                cellSize: 10, // Adjust cell size for better fit
+                cellSize: 10,
                 cellPadding: 2,
-                colLimit: 13, // Limit columns to make it more compact if needed
+                colLimit: 13,
                 animationDuration: 500,
                 // colors: {
                 //     min: "#ebedf0",
@@ -996,8 +1007,8 @@
                 const yearAgo = new Date();
                 yearAgo.setFullYear(now.getFullYear() - 1);
 
-                const startRange = firstEventDate < yearAgo ? firstEventDate : yearAgo; // Start at least a year ago or from first event
-                const endRange = lastEventDate > now ? lastEventDate : now; // End at current date or last event
+                const startRange = firstEventDate < yearAgo ? firstEventDate : yearAgo;
+                const endRange = lastEventDate > now ? lastEventDate : now;
 
                 const cal = new CalHeatmap();
                 cal.init({
