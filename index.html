@@ -35,18 +35,20 @@
     <!-- Cal-Heatmap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white shadow-xl rounded-2xl p-8 max-w-xl w-full">
-        <div class="flex justify-center mb-4">
-            <img src="https://d.cess.network/n1/1075188011.png" alt="Farmlabs Logo" class="h-12 w-auto">
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-between p-4">
+    <div class="bg-white shadow-xl rounded-2xl p-8 max-w-xl w-full mb-4">
+        <div class="flex flex-col items-center mb-6">
+            <img src="https://d.cess.network/n1/1075188011.png" alt="Farmlabs Logo" class="h-16 w-auto mb-2">
+            <h1 class="text-3xl font-bold text-center text-gray-800">Farmlabs GitHub Bot</h1>
+            <p class="text-sm text-gray-600 text-center">Automate your GitHub contributions with ease</p>
         </div>
-        <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">GitHub Auto Commit Bot</h2>
 
         <!-- Tab Buttons -->
         <div class="flex border-b border-gray-200 mb-6">
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tl-lg hover:bg-gray-100 active" data-tab="main-controls">Main Controls</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100" data-tab="historic-commits">Historic Commits</button>
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100" data-tab="heatmaps">Heatmaps</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100" data-tab="heatmaps">Heatmaps</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100" data-tab="about">About</button>
         </div>
 
         <!-- Tab Content -->
@@ -197,6 +199,26 @@
             </div>
         </div>
 
+        <div id="about" class="tab-content space-y-4">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800">About This Project</h3>
+            <p class="text-gray-700">
+                This GitHub Auto Commit Bot is a side project developed by <a href="https://farmlabs.pages.dev" target="_blank" class="text-blue-600 hover:underline">Farmlabs</a>.
+                It's designed to help you manage and visualize your GitHub contribution graph with ease.
+            </p>
+            <p class="text-gray-700">
+                You can find the source code and contribute to this project on GitHub:
+                <a href="https://github.com/CryptoExplor/GitHub-Contribution-Bot" target="_blank" class="text-blue-600 hover:underline">GitHub Repository</a>.
+            </p>
+            <p class="text-gray-700">
+                Connect with the developer:
+                <a href="https://github.com/CryptoExplor" target="_blank" class="text-blue-600 hover:underline">Github</a> |
+                <a href="https://t.me/dare_3" target="_blank" class="text-blue-600 hover:underline">Telegram</a>
+            </p>
+            <p class="text-gray-700">
+                This tool leverages the power of the Gemini API for smart commit message generation, providing a more intelligent and personalized experience.
+            </p>
+        </div>
+
         <div class="mt-6">
             <h3 class="text-lg font-semibold mb-2 text-gray-800">Status</h3>
             <pre id="status" class="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-64 text-gray-700"></pre>
@@ -208,6 +230,14 @@
             <p class="text-gray-600 mt-2">Processing...</p>
         </div>
     </div>
+
+    <footer class="mt-8 text-center text-gray-600 text-sm w-full max-w-xl">
+        <p>&copy; 2025 Farmlabs. All rights reserved.</p>
+        <p>
+            <a href="https://farmlabs.pages.dev" target="_blank" class="text-blue-600 hover:underline">Farmlabs Homepage</a> |
+            <a href="https://github.com/CryptoExplor/GitHub-Contribution-Bot" target="_blank" class="text-blue-600 hover:underline">Project GitHub</a>
+        </p>
+    </footer>
 
     <!-- Cal-Heatmap JS -->
     <script src="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.min.js"></script>
