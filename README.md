@@ -31,6 +31,7 @@ Click the fork button on GitHub to make your own editable copy of this project.
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/import/project?template=https://github.com/CryptoExplor/GitHub-Contribution-Bot)
 
 > Make sure the `template=` URL points to your **forked version**, not the original.
+> Replace `YOUR_USERNAME` in the link above with your GitHub username after forking.
 
 ---
 
