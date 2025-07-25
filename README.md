@@ -1,6 +1,6 @@
 # 🟢 GitHub Contribution Bot
 
-📘 [**View Full User Guide**](https://your-deployment-url/guide.html)
+📘 [**View Full User Guide**](https://githubbot-html.vercel.app/guide.html)
 
 [![Vercel](https://vercelbadge.vercel.app/api/CryptoExplor/GitHub-Contribution-Bot)](https://github.com/CryptoExplor/GitHub-Contribution-Bot)
 
