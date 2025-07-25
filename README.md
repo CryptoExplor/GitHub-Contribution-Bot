@@ -104,5 +104,3 @@ This tool uses the **Gemini API** to generate **context-aware commit messages**,
 ## 📄 License
 
 MIT © 2025 CryptoExplor
-
-```
