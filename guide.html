@@ -71,9 +71,13 @@
             <ul class="space-y-2">
                 <li><a href="#getting-started" class="text-blue-600 hover:underline" onclick="toggleSidebar()">✅ Getting Started</a></li>
                 <li><a href="#create-pat" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🔑 Create GitHub Token</a></li>
+                <li><a href="#token-scopes" class="text-blue-600 hover:underline" onclick="toggleSidebar()">ℹ️ Token Scopes Explained</a></li>
                 <li><a href="#provide-gemini-key" class="text-blue-600 hover:underline" onclick="toggleSidebar()">✨ Provide Gemini Key</a></li>
                 <li><a href="#how-to-use" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🛠️ How to Use</a></li>
+                <li><a href="#smart-rotation" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🔄 Smart Rotation</a></li>
                 <li><a href="#safe-mode" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🧠 Safe Mode Explained</a></li>
+                <li><a href="#commit-preview" class="text-blue-600 hover:underline" onclick="toggleSidebar()">👀 Commit Preview Modal</a></li>
+                <li><a href="#stats-panel" class="text-blue-600 hover:underline" onclick="toggleSidebar()">📈 Stats Panel</a></li>
                 <li><a href="#what-to-do" class="text-blue-600 hover:underline" onclick="toggleSidebar()">⚠️ What To Do</a></li>
                 <li><a href="#what-not-to-do" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🚫 What Not To Do</a></li>
                 <li><a href="#pro-tips" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🧪 Pro Tips</a></li>
@@ -119,12 +123,22 @@
                     <li>Click on "Generate new token (classic)".</li>
                     <li>Give your token a descriptive name (e.g., "GitHub Bot Token").</li>
                     <li>Set an expiration date (e.g., 90 days or 1 year) or "No expiration" (use with caution).</li>
-                    <li>Under "Select scopes", **check the <code>repo</code> checkbox**. This grants access to your repositories. For read-only heatmaps, you might also need <code>read:user</code>.</li>
+                    <li>Under "Select scopes", **check the <code>repo</code> checkbox**. For fetching your real contribution heatmap, you also need to check <code>read:user</code>.</li>
                     <li>Click "Generate token" at the bottom of the page.</li>
                     <li>**IMPORTANT:** Copy the generated token immediately. You will not be able to see it again! Store it securely.</li>
                     <li>Paste this token into the "GitHub Personal Access Token (PAT)" field in the bot's "Main Controls" tab.</li>
                 </ol>
                 <p class="text-xs text-gray-500 mt-2">For more details, refer to GitHub's official documentation on <a href="https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens" target="_blank" class="text-blue-600 hover:underline">managing personal access tokens</a>.</p>
+            </section>
+
+            <section id="token-scopes">
+                <h2 class="text-xl font-semibold">ℹ️ Token Scopes Explained</h2>
+                <p class="text-sm mt-2">GitHub Personal Access Tokens require specific permissions, called "scopes," to perform actions on your behalf. Here's what the bot needs:</p>
+                <ul class="list-disc list-inside text-sm mt-2 space-y-1">
+                    <li><strong><code>repo</code>:</strong> This scope grants the bot full control over your private repositories. It is essential for the bot to create, update, and delete files (i.e., make commits) in the repositories you select. Without this, the bot cannot commit.</li>
+                    <li><strong><code>read:user</code>:</strong> This scope allows the bot to read your user profile data. It is specifically used to fetch your public GitHub activity events for displaying your "Real GitHub Contribution Heatmap." Without this, the heatmap feature might not work correctly.</li>
+                </ul>
+                <p class="text-xs text-gray-500 mt-2">Providing only the necessary scopes is a security best practice to limit the bot's access to your GitHub account.</p>
             </section>
 
             <section id="provide-gemini-key">
@@ -142,11 +156,23 @@
             <section id="how-to-use">
                 <h2 class="text-xl font-semibold">🛠️ How to Use</h2>
                 <ol class="list-decimal list-inside text-sm">
-                    <li>Paste your GitHub token (with <code>repo</code> scope)</li>
+                    <li>Paste your GitHub token (with <code>repo</code> and <code>read:user</code> scopes)</li>
                     <li>Select one or more of your repositories</li>
                     <li>Set the file path and branch (default: <code>main</code>)</li>
-                    <li>Use Manual, Auto Commit, or Safe Mode options</li>
+                    <li>Optionally provide your Gemini API Key for smart commit messages.</li>
+                    <li>Use Manual, Auto Commit, or Safe Mode options.</li>
+                    <li>Explore the new features like Smart Rotation, Commit Preview, and Stats Panel.</li>
                 </ol>
+            </section>
+
+            <section id="smart-rotation">
+                <h2 class="text-xl font-semibold">🔄 Smart Rotation</h2>
+                <p class="text-sm mt-2">Smart Rotation is a feature designed to distribute automated commits more evenly across multiple selected repositories.</p>
+                <ul class="list-disc list-inside text-sm mt-2">
+                    <li>When enabled, the bot will cycle through your selected repositories in a round-robin fashion for each subsequent auto-commit.</li>
+                    <li>This helps create a more natural and diversified contribution graph across your projects.</li>
+                    <li>You can enable or disable this feature using the "Enable Smart Rotation (Round-Robin Repos)" checkbox in the "Main Controls" tab.</li>
+                </ul>
             </section>
 
             <section id="safe-mode">
@@ -158,6 +184,43 @@
                     <li>🧾 Generating natural, varied commit messages</li>
                     <li>💤 Occasionally skipping commits to avoid bot detection</li>
                 </ul>
+                <p class="text-sm mt-2">Enable this feature using the "Enable Safe Mode (Human-like Behavior)" checkbox in the "Main Controls" tab for a more organic contribution pattern.</p>
+            </section>
+
+            <section id="commit-preview">
+                <h2 class="text-xl font-semibold">👀 Commit Preview Modal</h2>
+                <p class="text-sm mt-2">The Commit Preview Modal provides a confirmation step before a commit is actually made, whether manually or automatically.</p>
+                <ul class="list-disc list-inside text-sm mt-2">
+                    <li><strong>Why it's useful:</strong>
+                        <ul class="list-circle list-inside ml-4">
+                            <li>Avoids sending incorrect or duplicate messages.</li>
+                            <li>Allows you to edit the message or content, making the commit feel more personal, especially in Safe Mode.</li>
+                            <li>Provides transparency on what's going on behind-the-scenes.</li>
+                        </ul>
+                    </li>
+                    <li><strong>What it shows:</strong>
+                        <ul class="list-circle list-inside ml-4">
+                            <li>Commit message</li>
+                            <li>File path</li>
+                            <li>Content snippet</li>
+                            <li>(Optional) A countdown timer for auto-commits.</li>
+                        </ul>
+                    </li>
+                    <li>You can enable or disable this feature using the "Enable Commit Preview" checkbox in the "Main Controls" tab.</li>
+                </ul>
+            </section>
+
+            <section id="stats-panel">
+                <h2 class="text-xl font-semibold">📈 Stats Panel</h2>
+                <p class="text-sm mt-2">The Stats Panel provides insights into your bot's usage and commit activity.</p>
+                <ul class="list-disc list-inside text-sm mt-2">
+                    <li><strong>Total Commits:</strong> The total number of commits made by the bot.</li>
+                    <li><strong>Safe Mode Commits:</strong> The number and percentage of commits made while Safe Mode was enabled.</li>
+                    <li><strong>First Commit Date:</strong> The date of the very first commit recorded by the bot.</li>
+                    <li><strong>Average Interval:</strong> The average time between commits.</li>
+                    <li><strong>Top Used Repo:</strong> The repository where the most commits have been made.</li>
+                </ul>
+                <p class="text-sm mt-2">You can access this panel via the "Stats" tab and reset the statistics at any time using the "Reset Stats" button.</p>
             </section>
 
             <section id="what-to-do">
@@ -187,6 +250,8 @@
                     <li>🧭 Use multi-repo rotation for realism</li>
                     <li>📊 Use the real heatmap preview to track your growth</li>
                     <li>🧠 Let Safe Mode handle randomness</li>
+                    <li>👀 Enable Commit Preview for transparency and control.</li>
+                    <li>📈 Monitor your bot's activity with the Stats Panel.</li>
                 </ul>
             </section>
 
@@ -246,7 +311,7 @@
                                 <td class="py-2 px-4 border-b">Allowed, but might hurt repo credibility</td>
                             </tr>
                             <tr>
-                                <td class="py-2 px-4 border-b">� “Artificial” heatmap filling</td>
+                                <td class="py-2 px-4 border-b">⚪ “Artificial” heatmap filling</td>
                                 <td class="py-2 px-4 border-b">Low</td>
                                 <td class="py-2 px-4 border-b">Common, not against rules (if to your own repos)</td>
                             </tr>
@@ -366,4 +431,3 @@
     </script>
 </body>
 </html>
-�
