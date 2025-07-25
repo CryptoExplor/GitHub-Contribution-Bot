@@ -38,7 +38,7 @@
                 <label for="token" class="block text-gray-700 text-sm font-medium mb-1">GitHub Personal Access Token (PAT):</label>
                 <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                <p class="text-xs text-gray-500 mt-1">Make sure your PAT has 'repo' scope.</p>
+                <p class="text-xs text-gray-500 mt-1">Make sure your PAT has 'repo' scope. For real heatmap, 'read:user' or 'public_repo' might be needed.</p>
             </div>
 
             <div>
@@ -157,7 +157,7 @@
                     <div>
                         <label for="patternEndDate" class="block text-gray-700 text-sm font-medium mb-1">Pattern End Date:</label>
                         <input type="date" id="patternEndDate"
-                               class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                               class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
                     </div>
                 </div>
                 <button onclick="applyPatternAndGenerateCommits()" id="applyPatternButton"
@@ -166,10 +166,26 @@
                 </button>
                 <button onclick="renderHeatmapFromSimulatedData()" id="previewHeatmapButton"
                         class="w-full bg-gray-500 text-white py-3 rounded-md font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-2">
-                    Refresh Heatmap Preview
+                    Refresh Simulated Heatmap Preview
                 </button>
                 <div id="heatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto">
                     <!-- Cal-Heatmap will render here -->
+                </div>
+            </div>
+
+            <div class="border-t border-gray-200 pt-4 mt-4">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">Real GitHub Contribution Heatmap</h3>
+                <p class="text-sm text-gray-600 mb-2">
+                    Fetches your public GitHub activity events and displays them as a heatmap.
+                    **Note:** This uses the GitHub Events API, which might not perfectly match your full contribution graph
+                    (e.g., private contributions without proper token scope, or older data).
+                </p>
+                <button onclick="loadRealContributionHeatmap()" id="loadRealHeatmapButton"
+                        class="w-full bg-blue-500 text-white py-3 rounded-md font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
+                    Load Real Heatmap
+                </button>
+                <div id="realHeatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto">
+                    <!-- Real Cal-Heatmap will render here -->
                 </div>
             </div>
         </div>
@@ -425,29 +441,40 @@
         /**
          * Toggles the loading indicator visibility and disables/enables all interactive elements.
          * @param {boolean} show True to show, false to hide.
+         * @param {string} [context] Optional context to disable specific buttons/inputs.
          */
-        function toggleLoading(show) {
+        function toggleLoading(show, context = 'all') {
             document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
-            document.getElementById('makeCommitButton').disabled = show;
-            document.getElementById('toggleAutoCommitButton').disabled = show;
-            document.getElementById('generateRandomCommitsButton').disabled = show;
-            document.getElementById('applyPatternButton').disabled = show;
-            document.getElementById('previewHeatmapButton').disabled = show;
-            document.getElementById('token').disabled = show;
-            document.getElementById('username').disabled = show;
-            document.getElementById('repo').disabled = show;
-            document.getElementById('branch').disabled = show;
-            document.getElementById('filepath').disabled = show;
-            document.getElementById('content').disabled = show;
-            document.getElementById('intervalValue').disabled = show;
-            document.getElementById('intervalType').disabled = show;
-            document.getElementById('numSimulatedCommits').disabled = show;
-            document.getElementById('simulatedStartDate').disabled = show;
-            document.getElementById('simulatedEndDate').disabled = show;
-            document.getElementById('simulatedFilePath').disabled = show;
-            document.getElementById('streakPatternSelect').disabled = show;
-            document.getElementById('patternStartDate').disabled = show;
-            document.getElementById('patternEndDate').disabled = show;
+
+            const allControls = [
+                document.getElementById('makeCommitButton'),
+                document.getElementById('toggleAutoCommitButton'),
+                document.getElementById('generateRandomCommitsButton'),
+                document.getElementById('applyPatternButton'),
+                document.getElementById('previewHeatmapButton'),
+                document.getElementById('loadRealHeatmapButton'), // New button
+                document.getElementById('token'),
+                document.getElementById('username'),
+                document.getElementById('repo'),
+                document.getElementById('branch'),
+                document.getElementById('filepath'),
+                document.getElementById('content'),
+                document.getElementById('intervalValue'),
+                document.getElementById('intervalType'),
+                document.getElementById('numSimulatedCommits'),
+                document.getElementById('simulatedStartDate'),
+                document.getElementById('simulatedEndDate'),
+                document.getElementById('simulatedFilePath'),
+                document.getElementById('streakPatternSelect'),
+                document.getElementById('patternStartDate'),
+                document.getElementById('patternEndDate')
+            ];
+
+            allControls.forEach(control => {
+                if (control) { // Ensure the element exists
+                    control.disabled = show;
+                }
+            });
         }
 
         /**
@@ -832,7 +859,119 @@
                 //     scheme: "greens"
                 // }
             });
-            showStatusMessage("Heatmap preview updated.", "info");
+            showStatusMessage("Simulated heatmap preview updated.", "info");
+        }
+
+        /**
+         * Fetches real GitHub contribution events and renders them as a heatmap.
+         */
+        async function loadRealContributionHeatmap() {
+            const token = document.getElementById("token").value.trim();
+            const username = document.getElementById("username").value.trim();
+            const realHeatmapContainer = document.getElementById("realHeatmapContainer");
+            realHeatmapContainer.innerHTML = ''; // Clear previous heatmap
+
+            if (!token || !username) {
+                showStatusMessage("Please enter your GitHub Token and Username to load real heatmap.", "error");
+                return;
+            }
+
+            toggleLoading(true);
+            showStatusMessage(`Fetching real GitHub events for ${username}... This might take a moment.`, "info");
+
+            const headers = {
+                "Authorization": `token ${token}`,
+                "Accept": "application/vnd.github.v3+json"
+            };
+
+            const realContributionData = {};
+            let page = 1;
+            const maxPages = 5; // Fetch up to 5 pages to get recent history (max 100 events/page)
+            let hasMoreEvents = true;
+
+            try {
+                while (page <= maxPages && hasMoreEvents) {
+                    const res = await fetch(`https://api.github.com/users/${username}/events?page=${page}&per_page=100`, { headers });
+                    if (!res.ok) {
+                        const errorData = await res.json();
+                        throw new Error(`Failed to fetch events: ${errorData.message || res.statusText}`);
+                    }
+                    const events = await res.json();
+
+                    if (events.length === 0) {
+                        hasMoreEvents = false; // No more events to fetch
+                    } else {
+                        events.forEach(event => {
+                            const date = new Date(event.created_at);
+                            // Only count push events for a more relevant contribution graph mimic
+                            if (event.type === 'PushEvent') {
+                                const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000;
+                                realContributionData[timestamp] = (realContributionData[timestamp] || 0) + 1;
+                            }
+                        });
+                        page++;
+                    }
+                }
+
+                if (Object.keys(realContributionData).length === 0) {
+                    showStatusMessage("No public push events found for the last few months. Ensure your token has 'public_repo' or 'read:user' scope if you expect private contributions.", "info");
+                    toggleLoading(false);
+                    return;
+                }
+
+                // Determine start and end dates for heatmap based on fetched data
+                const eventDates = Object.keys(realContributionData).map(ts => new Date(parseInt(ts) * 1000));
+                const firstEventDate = new Date(Math.min(...eventDates.map(d => d.getTime())));
+                const lastEventDate = new Date(Math.max(...eventDates.map(d => d.getTime())));
+
+                // Ensure the heatmap covers at least a year or the actual range of data
+                const now = new Date();
+                const yearAgo = new Date();
+                yearAgo.setFullYear(now.getFullYear() - 1);
+
+                const startRange = firstEventDate < yearAgo ? firstEventDate : yearAgo; // Start at least a year ago or from first event
+                const endRange = lastEventDate > now ? lastEventDate : now; // End at current date or last event
+
+                const cal = new CalHeatmap();
+                cal.init({
+                    itemSelector: "#realHeatmapContainer",
+                    domain: "month",
+                    subDomain: "day",
+                    range: 12, // Display 12 months
+                    start: new Date(endRange.getFullYear(), endRange.getMonth() - 11, 1), // Start 11 months before the end date
+                    data: realContributionData,
+                    legend: [1, 2, 3, 4],
+                    tooltip: true,
+                    displayLegend: true,
+                    verticalOrientation: false,
+                    label: {
+                        position: "top",
+                    },
+                    subDomainTitleFormat: {
+                        empty: "{date}",
+                        filled: "{count} commits on {date}"
+                    },
+                    cellSize: 10,
+                    cellPadding: 2,
+                    colLimit: 13,
+                    animationDuration: 500,
+                    // Optional: customize colors for real heatmap
+                    // colors: {
+                    //     min: "#ebedf0",
+                    //     max: "#0e4429",
+                    //     empty: "#ebedf0",
+                    //     type: "linear",
+                    //     scheme: "darkgreen"
+                    // }
+                });
+                showStatusMessage("✅ Real GitHub heatmap loaded successfully!", "success");
+
+            } catch (error) {
+                console.error("Error loading real heatmap:", error);
+                showStatusMessage(`❌ Failed to load real heatmap: ${error.message}. Check your username and token scope.`, "error");
+            } finally {
+                toggleLoading(false);
+            }
         }
 
 
@@ -855,6 +994,7 @@
         document.getElementById("streakPatternSelect").addEventListener("change", saveSettingsToStorage);
         document.getElementById("patternStartDate").addEventListener("change", saveSettingsToStorage);
         document.getElementById("patternEndDate").addEventListener("change", saveSettingsToStorage);
+        document.getElementById("loadRealHeatmapButton").addEventListener("click", loadRealContributionHeatmap);
 
 
         // Initial setup on window load
