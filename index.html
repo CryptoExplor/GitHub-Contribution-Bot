@@ -62,6 +62,14 @@
                 <p class="text-xs text-gray-500 mt-1">Make sure your PAT has 'repo' scope.</p>
             </div>
 
+            <!-- New: Gemini API Key Input -->
+            <div>
+                <label for="geminiApiKey" class="block text-gray-700 text-sm font-medium mb-1">Gemini API Key (for Smart Commit Messages):</label>
+                <input type="password" id="geminiApiKey" placeholder="AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                <p class="text-xs text-gray-500 mt-1">Required for generating smart commit messages using AI.</p>
+            </div>
+
             <div>
                 <label for="username" class="block text-gray-700 text-sm font-medium mb-1">GitHub Username:</label>
                 <input type="text" id="username" placeholder="Your GitHub Username"
@@ -331,7 +339,7 @@
                 }
 
                 // Call commitToGitHub with the generated safe message
-                await commitToGitHub(null, null, selectedRepo, message); // Pass selectedRepo and message
+                await commitToRepo(null, null, selectedRepo, message); // Pass selectedRepo and message
             }
             if (window.debugMode) console.log("Safe Mode Auto Commit loop finished.");
             showStatusMessage("Safe Mode Auto Commit loop finished.", "info");
@@ -586,6 +594,7 @@
                 document.getElementById('previewHeatmapButton'),
                 document.getElementById('loadRealHeatmapButton'),
                 document.getElementById('token'),
+                document.getElementById('geminiApiKey'), // Added Gemini API Key input to controls
                 document.getElementById('username'),
                 document.getElementById('repo'),
                 document.getElementById('branch'),
@@ -1187,6 +1196,8 @@
 
         // Event Listeners for saving settings on input/change
         document.getElementById("token").addEventListener("input", saveSettingsToStorage);
+        // Added event listener for new Gemini API Key input
+        document.getElementById("geminiApiKey").addEventListener("input", saveSettingsToStorage);
         document.getElementById("username").addEventListener("input", saveSettingsToStorage);
         document.getElementById("repo").addEventListener("change", () => {
             saveSettingsToStorage();
