@@ -99,6 +99,18 @@ This tool uses the **Gemini API** to generate **context-aware commit messages**,
 * 💻 Built and maintained by [@CryptoExplor](https://github.com/CryptoExplor)
 * 🤝 PRs welcome! Fork, create a branch, and submit a pull request.
 
+## 🙌 Support & Sponsorship
+
+💸 Help support development and keep the commits flowing:
+
+[![❤️ Sponsor on GitHub](https://img.shields.io/badge/Sponsor-%40CryptoExplor-ff69b4?logo=githubsponsors&style=for-the-badge)](https://github.com/sponsors/CryptoExplor)
+[![🔗 Telegram](https://img.shields.io/badge/Telegram-Connect-blue?logo=telegram&style=for-the-badge)](https://t.me/dare_3)
+
+---
+
+**ETH / USDT / USDC (ERC-20)**  
+`0x1C46ccEA4D62d3eEC4DCE3501aa96d0Ff5FcA954`
+
 ---
 
 ## ⚠️ Disclaimer
