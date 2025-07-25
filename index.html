@@ -86,7 +86,17 @@
             </div>
 
             <div>
-                <label for="content" class="block text-gray-700 text-sm font-medium mb-1">Content to commit:</label>
+                <label for="commitContext" class="block text-gray-700 text-sm font-medium mb-1">Context for Commit Message (e.g., "fixed login bug"):</label>
+                <textarea id="commitContext" rows="2" placeholder="Briefly describe the commit purpose for AI message generation..."
+                          class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y"></textarea>
+                <button onclick="generateSmartCommitMessage()" id="generateMessageButton"
+                        class="w-full bg-purple-500 text-white py-2 rounded-md font-semibold hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-2">
+                    ✨ Generate Smart Commit Message
+                </button>
+            </div>
+
+            <div>
+                <label for="content" class="block text-gray-700 text-sm font-medium mb-1">Commit Message / Content:</label>
                 <textarea id="content" rows="6" placeholder="Leave blank for auto-generated content..."
                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"></textarea>
             </div>
@@ -264,6 +274,7 @@
                 localStorage.setItem("gh_streakPatternSelect", document.getElementById("streakPatternSelect").value.trim());
                 localStorage.setItem("gh_patternStartDate", document.getElementById("patternStartDate").value.trim());
                 localStorage.setItem("gh_patternEndDate", document.getElementById("patternEndDate").value.trim());
+                localStorage.setItem("gh_commitContext", document.getElementById("commitContext").value.trim()); // Save new input
 
                 // No status message here to avoid spamming on every input change
             } catch (e) {
@@ -294,6 +305,7 @@
                 document.getElementById("streakPatternSelect").value = localStorage.getItem("gh_streakPatternSelect") || 'none';
                 document.getElementById("patternStartDate").value = localStorage.getItem("gh_patternStartDate") || '';
                 document.getElementById("patternEndDate").value = localStorage.getItem("gh_patternEndDate") || '';
+                document.getElementById("commitContext").value = localStorage.getItem("gh_commitContext") || ''; // Load new input
             } catch (e) {
                 console.error("Failed to load settings from local storage:", e);
                 showStatusMessage("Error loading settings locally. Please enter them manually.", "error");
@@ -486,7 +498,9 @@
                 document.getElementById('simulatedFilePath'),
                 document.getElementById('streakPatternSelect'),
                 document.getElementById('patternStartDate'),
-                document.getElementById('patternEndDate')
+                document.getElementById('patternEndDate'),
+                document.getElementById('commitContext'), // New input
+                document.getElementById('generateMessageButton') // New button
             ];
 
             allControls.forEach(control => {
@@ -992,6 +1006,54 @@
             }
         }
 
+        /**
+         * Generates a smart commit message using the Gemini API based on user-provided context.
+         */
+        async function generateSmartCommitMessage() {
+            const commitContext = document.getElementById("commitContext").value.trim();
+            const contentTextArea = document.getElementById("content");
+
+            if (!commitContext) {
+                showStatusMessage("Please provide some context for the commit message.", "error");
+                return;
+            }
+
+            toggleLoading(true);
+            showStatusMessage("✨ Generating smart commit message...", "info");
+
+            try {
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: `Generate a concise and descriptive GitHub commit message (max 10 words, start with a conventional commit prefix like 'feat:', 'fix:', 'docs:', 'chore:') based on the following context: "${commitContext}"` }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; // Canvas will automatically provide this in runtime
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const generatedMessage = result.candidates[0].content.parts[0].text.trim();
+                    contentTextArea.value = generatedMessage; // Populate the content textarea
+                    showStatusMessage("✨ Smart commit message generated successfully!", "success");
+                } else {
+                    showStatusMessage("❌ Failed to generate smart commit message. Unexpected API response.", "error");
+                    console.error("Gemini API response structure unexpected:", result);
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                showStatusMessage(`❌ Error generating smart commit message: ${error.message}`, "error");
+            } finally {
+                toggleLoading(false);
+            }
+        }
+
 
         // Event Listeners for saving settings on input/change
         document.getElementById("token").addEventListener("input", saveSettingsToStorage);
@@ -1012,7 +1074,9 @@
         document.getElementById("streakPatternSelect").addEventListener("change", saveSettingsToStorage);
         document.getElementById("patternStartDate").addEventListener("change", saveSettingsToStorage);
         document.getElementById("patternEndDate").addEventListener("change", saveSettingsToStorage);
+        document.getElementById("commitContext").addEventListener("input", saveSettingsToStorage); // Save new input
         document.getElementById("loadRealHeatmapButton").addEventListener("click", loadRealContributionHeatmap);
+        document.getElementById("generateMessageButton").addEventListener("click", generateSmartCommitMessage); // New event listener for AI button
 
 
         // Tab switching logic
