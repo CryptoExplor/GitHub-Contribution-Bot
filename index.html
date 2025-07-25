@@ -89,6 +89,29 @@
                     Toggle Auto Commit
                 </button>
             </div>
+
+            <div class="border-t border-gray-200 pt-4 mt-4">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Past Commits (Message-Based)</h3>
+                <p class="text-sm text-gray-600 mb-2">
+                    This will create multiple commits where the commit message and content include a past date.
+                    **Note:** This does not alter the actual GitHub commit timestamp, only the visible message.
+                </p>
+                <div class="flex space-x-2 mb-4">
+                    <input type="number" id="numSimulatedCommits" value="10" min="1" max="100"
+                           class="w-1/2 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    <select id="simulatedDateRange"
+                            class="w-1/2 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500">
+                        <option value="30">Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                        <option value="365">Last Year</option>
+                        <option value="730">Last 2 Years</option>
+                    </select>
+                </div>
+                <button onclick="simulatePastCommits()" id="simulateCommitsButton"
+                        class="w-full bg-purple-600 text-white py-3 rounded-md font-semibold hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
+                    Make Simulated Past Commits
+                </button>
+            </div>
         </div>
 
         <div class="mt-6">
@@ -120,7 +143,7 @@
         let autoCommitInterval = null; // Stores the interval ID for auto-commit
 
         /**
-         * Saves the GitHub token, username, selected repo, and selected branch to local storage.
+         * Saves all relevant settings to local storage.
          */
         function saveSettingsToStorage() {
             try {
@@ -131,6 +154,8 @@
                 localStorage.setItem("gh_filepath", document.getElementById("filepath").value.trim());
                 localStorage.setItem("gh_intervalValue", document.getElementById("intervalValue").value.trim());
                 localStorage.setItem("gh_intervalType", document.getElementById("intervalType").value.trim());
+                localStorage.setItem("gh_numSimulatedCommits", document.getElementById("numSimulatedCommits").value.trim());
+                localStorage.setItem("gh_simulatedDateRange", document.getElementById("simulatedDateRange").value.trim());
                 showStatusMessage("Settings saved locally.", "info");
             } catch (e) {
                 console.error("Failed to save settings to local storage:", e);
@@ -139,7 +164,7 @@
         }
 
         /**
-         * Loads GitHub token, username, and selected repo/branch from local storage.
+         * Loads all relevant settings from local storage.
          */
         function loadSettingsFromStorage() {
             try {
@@ -150,6 +175,8 @@
                 document.getElementById("filepath").value = localStorage.getItem("gh_filepath") || 'README.md';
                 document.getElementById("intervalValue").value = localStorage.getItem("gh_intervalValue") || '24';
                 document.getElementById("intervalType").value = localStorage.getItem("gh_intervalType") || 'hours';
+                document.getElementById("numSimulatedCommits").value = localStorage.getItem("gh_numSimulatedCommits") || '10';
+                document.getElementById("simulatedDateRange").value = localStorage.getItem("gh_simulatedDateRange") || '30';
             } catch (e) {
                 console.error("Failed to load settings from local storage:", e);
                 showStatusMessage("Error loading settings locally. Please enter them manually.", "error");
@@ -304,13 +331,14 @@
         }
 
         /**
-         * Toggles the loading indicator visibility and disables buttons.
+         * Toggles the loading indicator visibility and disables/enables all interactive elements.
          * @param {boolean} show True to show, false to hide.
          */
         function toggleLoading(show) {
             document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
             document.getElementById('makeCommitButton').disabled = show;
             document.getElementById('toggleAutoCommitButton').disabled = show;
+            document.getElementById('simulateCommitsButton').disabled = show; // Disable new button
             document.getElementById('token').disabled = show;
             document.getElementById('username').disabled = show;
             document.getElementById('repo').disabled = show;
@@ -319,12 +347,15 @@
             document.getElementById('content').disabled = show;
             document.getElementById('intervalValue').disabled = show;
             document.getElementById('intervalType').disabled = show;
+            document.getElementById('numSimulatedCommits').disabled = show; // Disable new input
+            document.getElementById('simulatedDateRange').disabled = show; // Disable new select
         }
 
         /**
          * Handles the commit process to GitHub.
+         * @param {string} [dateForMessage] Optional date string to include in the commit message/content for simulation.
          */
-        async function commitToGitHub() {
+        async function commitToGitHub(dateForMessage = null) {
             const token = document.getElementById("token").value.trim();
             const repo = document.getElementById("repo").value.trim();
             const branch = document.getElementById("branch").value.trim();
@@ -333,13 +364,16 @@
 
             if (!token || !repo || !branch || !path) {
                 showStatusMessage("Please fill in all required fields: Token, Repository, Branch, and File Path.", "error");
-                return;
+                return false; // Indicate failure
             }
 
             saveSettingsToStorage(); // Save settings on successful input
 
-            toggleLoading(true);
-            showStatusMessage("Attempting to commit...", "info");
+            if (!dateForMessage) { // Only show loading for single manual commit
+                toggleLoading(true);
+                showStatusMessage("Attempting to commit...", "info");
+            }
+
 
             const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
             const headers = {
@@ -357,9 +391,9 @@
                     const data = await getRes.json();
                     sha = data.sha;
                     currentContent = fromBase64(data.content);
-                    showStatusMessage(`File '${path}' found on branch '${branch}'. Preparing to update...`, "info");
+                    // showStatusMessage(`File '${path}' found on branch '${branch}'. Preparing to update...`, "info"); // Too verbose for batch
                 } else if (getRes.status === 404) {
-                    showStatusMessage(`File '${path}' not found on branch '${branch}'. Preparing to create new file...`, "info");
+                    // showStatusMessage(`File '${path}' not found on branch '${branch}'. Preparing to create new file...`, "info"); // Too verbose for batch
                     // No SHA needed for new file creation
                 } else {
                     const errorData = await getRes.json();
@@ -367,17 +401,27 @@
                 }
             } catch (error) {
                 console.error("Error fetching file:", error);
-                showStatusMessage(`Error fetching file: ${error.message}. Will attempt to create if not exists.`, "error");
+                // showStatusMessage(`Error fetching file: ${error.message}. Will attempt to create if not exists.`, "error"); // Too verbose for batch
                 // Continue to attempt PUT, as 404 is expected for new files
             }
 
             // Determine final content: user input, or auto-generated if input is empty
-            const finalContent = contentInput === ''
-                ? `# ${randomMessages[Math.floor(Math.random() * randomMessages.length)]}\n\nUpdated on ${new Date().toLocaleString()}`
-                : contentInput;
+            let finalContent;
+            let commitMessage;
+
+            if (contentInput === '') {
+                // If user content is empty, generate based on random message and date
+                const messagePart = randomMessages[Math.floor(Math.random() * randomMessages.length)];
+                finalContent = `# ${messagePart}\n\nUpdated on ${dateForMessage || new Date().toLocaleString()}`;
+                commitMessage = `${messagePart} - ${dateForMessage || new Date().toLocaleString()}`;
+            } else {
+                // If user provided content, use it and append date if simulating
+                finalContent = contentInput;
+                commitMessage = `${randomMessages[Math.floor(Math.random() * randomMessages.length)]} - ${dateForMessage || new Date().toLocaleString()}`;
+            }
+
 
             const encodedContent = toBase64(finalContent);
-            const commitMessage = `${randomMessages[Math.floor(Math.random() * randomMessages.length)]} - ${new Date().toLocaleString()}`;
 
             const body = {
                 message: commitMessage,
@@ -396,15 +440,19 @@
                 const result = await putRes.json();
 
                 if (putRes.ok) {
-                    showStatusMessage(`✅ Commit successful! Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
+                    // showStatusMessage(`✅ Commit successful! Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
+                    return true; // Indicate success
                 } else {
                     throw new Error(result.message || "Unknown error during commit.");
                 }
             } catch (error) {
                 console.error("Commit failed:", error);
                 showStatusMessage(`❌ Commit failed: ${error.message}`, "error");
+                return false; // Indicate failure
             } finally {
-                toggleLoading(false);
+                if (!dateForMessage) { // Only hide loading for single manual commit
+                    toggleLoading(false);
+                }
             }
         }
 
@@ -451,24 +499,60 @@
             }
         }
 
-        // Event Listeners
-        document.getElementById("token").addEventListener("input", () => {
-            saveSettingsToStorage(); // Save token on input
-            loadUserRepos();
-        });
-        document.getElementById("username").addEventListener("input", () => {
-            saveSettingsToStorage(); // Save username on input
-            loadUserRepos();
-        });
+        /**
+         * Simulates past commits by creating multiple commits with messages and content
+         * containing randomly generated past dates.
+         */
+        async function simulatePastCommits() {
+            const numCommits = parseInt(document.getElementById("numSimulatedCommits").value);
+            const dateRangeDays = parseInt(document.getElementById("simulatedDateRange").value);
+
+            if (isNaN(numCommits) || numCommits <= 0) {
+                showStatusMessage("Please enter a valid positive number of simulated commits.", "error");
+                return;
+            }
+
+            toggleLoading(true);
+            showStatusMessage(`Starting simulation of ${numCommits} commits over the last ${dateRangeDays} days...`, "info");
+
+            let successfulCommits = 0;
+            for (let i = 0; i < numCommits; i++) {
+                // Generate a random date within the specified range
+                const randomDaysAgo = Math.floor(Math.random() * dateRangeDays) + 1; // 1 to dateRangeDays
+                const pastDate = new Date();
+                pastDate.setDate(pastDate.getDate() - randomDaysAgo);
+                const formattedPastDate = pastDate.toLocaleString();
+
+                showStatusMessage(`Simulating commit ${i + 1}/${numCommits} for date: ${formattedPastDate}...`, "info");
+
+                const success = await commitToGitHub(formattedPastDate);
+                if (success) {
+                    successfulCommits++;
+                }
+
+                // Add a small delay between commits to avoid hitting rate limits too quickly
+                await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+            }
+
+            showStatusMessage(`Simulation complete: ${successfulCommits} out of ${numCommits} commits successful.`, successfulCommits === numCommits ? "success" : "error");
+            toggleLoading(false);
+        }
+
+
+        // Event Listeners for saving settings on input/change
+        document.getElementById("token").addEventListener("input", saveSettingsToStorage);
+        document.getElementById("username").addEventListener("input", saveSettingsToStorage);
         document.getElementById("repo").addEventListener("change", () => {
-            saveSettingsToStorage(); // Save repo on change
-            loadRepoBranches();
+            saveSettingsToStorage();
+            loadRepoBranches(); // Load branches when repo changes
         });
-        document.getElementById("branch").addEventListener("change", saveSettingsToStorage); // Save branch on change
-        document.getElementById("filepath").addEventListener("input", saveSettingsToStorage); // Save filepath on input
-        document.getElementById("content").addEventListener("input", saveSettingsToStorage); // Save content on input
-        document.getElementById("intervalValue").addEventListener("input", saveSettingsToStorage); // Save interval value
-        document.getElementById("intervalType").addEventListener("change", saveSettingsToStorage); // Save interval type
+        document.getElementById("branch").addEventListener("change", saveSettingsToStorage);
+        document.getElementById("filepath").addEventListener("input", saveSettingsToStorage);
+        document.getElementById("content").addEventListener("input", saveSettingsToStorage);
+        document.getElementById("intervalValue").addEventListener("input", saveSettingsToStorage);
+        document.getElementById("intervalType").addEventListener("change", saveSettingsToStorage);
+        document.getElementById("numSimulatedCommits").addEventListener("input", saveSettingsToStorage); // Save new input
+        document.getElementById("simulatedDateRange").addEventListener("change", saveSettingsToStorage); // Save new select
 
 
         // Initial setup on window load
