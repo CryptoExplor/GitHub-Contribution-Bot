@@ -1,11 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth"> <!-- Added scroll-smooth for smooth scrolling -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub Contribution Bot – User Guide</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for hamburger icon -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -14,30 +16,89 @@
         main {
             overflow-y: auto;
         }
+        /* Custom styles for sidebar toggle on small screens */
+        @media (max-width: 768px) {
+            aside {
+                position: fixed;
+                top: 0;
+                left: -100%; /* Hidden by default */
+                height: 100%;
+                transition: left 0.3s ease-in-out;
+                z-index: 50; /* Ensure it's above other content */
+            }
+            aside.active {
+                left: 0; /* Show when active */
+            }
+            .overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 40;
+            }
+            .overlay.active {
+                display: block;
+            }
+            .menu-button {
+                display: block; /* Show hamburger button on small screens */
+            }
+            .main-content-wrapper {
+                margin-left: 0; /* No margin when sidebar is hidden */
+            }
+        }
+        @media (min-width: 769px) {
+            .menu-button {
+                display: none; /* Hide hamburger button on larger screens */
+            }
+            aside {
+                position: sticky; /* Keep sidebar sticky on larger screens */
+                left: 0;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
     <div class="flex min-h-screen">
+        <!-- Overlay for mobile sidebar -->
+        <div id="sidebar-overlay" class="overlay" onclick="toggleSidebar()"></div>
+
         <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r p-6 space-y-4 sticky top-0 h-screen text-sm">
+        <aside id="sidebar" class="w-64 bg-white border-r p-6 space-y-4 sticky top-0 h-screen text-sm md:relative md:left-0">
             <h2 class="text-lg font-bold">📘 Guide Menu</h2>
             <ul class="space-y-2">
-                <li><a href="#getting-started" class="text-blue-600 hover:underline">✅ Getting Started</a></li>
-                <li><a href="#create-pat" class="text-blue-600 hover:underline">🔑 Create GitHub Token</a></li>
-                <li><a href="#how-to-use" class="text-blue-600 hover:underline">🛠️ How to Use</a></li>
-                <li><a href="#safe-mode" class="text-blue-600 hover:underline">🧠 Safe Mode Explained</a></li>
-                <li><a href="#what-to-do" class="text-blue-600 hover:underline">⚠️ What To Do</a></li>
-                <li><a href="#what-not-to-do" class="text-blue-600 hover:underline">🚫 What Not To Do</a></li>
-                <li><a href="#pro-tips" class="text-blue-600 hover:underline">🧪 Pro Tips</a></li>
-                <li><a href="#advanced-usage" class="text-blue-600 hover:underline">💻 Advanced Usage</a></li>
-                <li><a href="#banned-risk" class="text-blue-600 hover:underline">🚫 Can You Get Banned?</a></li>
+                <li><a href="#getting-started" class="text-blue-600 hover:underline" onclick="toggleSidebar()">✅ Getting Started</a></li>
+                <li><a href="#create-pat" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🔑 Create GitHub Token</a></li>
+                <li><a href="#how-to-use" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🛠️ How to Use</a></li>
+                <li><a href="#safe-mode" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🧠 Safe Mode Explained</a></li>
+                <li><a href="#what-to-do" class="text-blue-600 hover:underline" onclick="toggleSidebar()">⚠️ What To Do</a></li>
+                <li><a href="#what-not-to-do" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🚫 What Not To Do</a></li>
+                <li><a href="#pro-tips" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🧪 Pro Tips</a></li>
+                <li><a href="#advanced-usage" class="text-blue-600 hover:underline" onclick="toggleSidebar()">💻 Advanced Usage</a></li>
+                <li><a href="#banned-risk" class="text-blue-600 hover:underline" onclick="toggleSidebar()">🚫 Can You Get Banned?</a></li>
                 <li><a href="index.html" class="text-green-600 hover:underline font-medium">⬅️ Back to App</a></li>
+                <li><button onclick="downloadPDF()" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-4">
+                    ⬇️ Download as PDF
+                </button></li>
             </ul>
         </aside>
 
-        <!-- Main Content -->
-        <main class="flex-1 p-6 space-y-6">
-            <h1 class="text-3xl font-bold text-center">📘 GitHub Contribution Bot – User Guide</h1>
+        <!-- Main Content Wrapper -->
+        <div class="flex-1 p-6 space-y-6 main-content-wrapper">
+            <!-- Hamburger menu button for mobile -->
+            <button class="menu-button fixed top-4 left-4 bg-blue-600 text-white p-2 rounded-md shadow-lg z-50" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <!-- Banner at the top -->
+            <header class="flex flex-col items-center justify-center p-4 bg-white shadow-md rounded-lg mb-6 text-center">
+                <img src="https://d.cess.network/n1/1075188011.png" alt="Farmlabs Logo" class="h-16 w-auto mb-4">
+                <h1 class="text-3xl font-bold text-center">📘 GitHub Contribution Bot – User Guide</h1>
+                <p class="text-sm text-gray-600 mt-2">Scan to access the guide on your mobile device!</p>
+                <!-- Removed QR Code Image -->
+            </header>
 
             <section id="getting-started">
                 <h2 class="text-xl font-semibold">✅ Getting Started</h2>
@@ -243,7 +304,52 @@
             <footer class="text-center text-xs text-gray-500 mt-10">
                 © 2025 CryptoExplor – Built by FarmLabs with ❤️
             </footer>
-        </main>
+        </div>
     </div>
+
+    <!-- html2pdf.js library for PDF download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <script>
+        // Function to toggle sidebar visibility on small screens
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        // Function to download the guide as PDF
+        function downloadPDF() {
+            const element = document.querySelector('main'); // Select the main content to convert
+            const opt = {
+                margin:       0.5,
+                filename:     'github-bot-user-guide.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, logging: true, dpi: 192, letterRendering: true },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Close sidebar when a link is clicked (for mobile)
+        document.querySelectorAll('#sidebar a').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 768) { // Only close on small screens
+                    toggleSidebar();
+                }
+            });
+        });
+
+        // Close sidebar if window is resized to larger than mobile while sidebar is open
+        window.addEventListener('resize', () => {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+        });
+    </script>
 </body>
 </html>
