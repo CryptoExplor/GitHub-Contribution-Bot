@@ -126,81 +126,44 @@
         </div>
 
         <div id="historic-commits" class="tab-content space-y-4">
-            <div class="border-b border-gray-200 pb-4 mb-4">
-                <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Random Historic Commits</h3>
-                <p class="text-sm text-gray-600 mb-2">
-                    Generate commits with messages and content referencing past dates.
-                    **Note:** This does not alter the actual GitHub commit timestamp, only the visible message.
-                </p>
-                <div class="space-y-3">
-                    <div>
-                        <label for="numSimulatedCommits" class="block text-gray-700 text-sm font-medium mb-1">Number of fake commits:</label>
-                        <input type="number" id="numSimulatedCommits" value="10" min="1" max="100"
-                               class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                    </div>
-                    <div>
-                        <label for="simulatedStartDate" class="block text-gray-700 text-sm font-medium mb-1">Start Date:</label>
-                        <input type="date" id="simulatedStartDate"
-                               class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                    </div>
-                    <div>
-                        <label for="simulatedEndDate" class="block text-gray-700 text-sm font-medium mb-1">End Date:</label>
-                        <input type="date" id="simulatedEndDate"
-                               class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                    </div>
-                    <div>
-                        <label for="simulatedFilePath" class="block text-gray-700 text-sm font-medium mb-1">File for Historic Commits:</label>
-                        <input type="text" id="simulatedFilePath" placeholder="history-log.txt" value="history-log.txt"
-                               class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                    </div>
+            <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Historic Commits</h3>
+            <p class="text-sm text-gray-600 mb-2">
+                Generate commits with messages and content referencing past dates.
+                **Note:** This does not alter the actual GitHub commit timestamp, only the visible message.
+            </p>
+            <div class="space-y-3">
+                <div>
+                    <label for="simulatedStartDate" class="block text-gray-700 text-sm font-medium mb-1">Start Date:</label>
+                    <input type="date" id="simulatedStartDate"
+                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
                 </div>
-                <button onclick="generateRandomHistoricCommits()" id="generateRandomCommitsButton"
-                        class="w-full bg-purple-600 text-white py-3 rounded-md font-semibold hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-4">
-                    Generate Random Fake Commits
-                </button>
-            </div>
-
-            <div>
-                <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Heatmap & Streak Planner</h3>
-                <p class="text-sm text-gray-600 mb-2">
-                    Choose a pattern to generate specific commit dates and visualize them below.
-                </p>
-                <div class="space-y-3">
-                    <div>
-                        <label for="streakPatternSelect" class="block text-gray-700 text-sm font-medium mb-1">Choose Preset Pattern:</label>
-                        <select id="streakPatternSelect"
-                                class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="none">Select a Pattern</option>
-                            <option value="30-day-streak">30-Day Streak (Daily)</option>
-                            <option value="checkerboard">Checkerboard (Every Other Day)</option>
-                            <option value="year-grid">Full Year Grid (Daily)</option>
-                            <option value="random-burst">Random Burst (5-10 commits)</option>
-                            <option value="weekdays-only">Weekdays Only (Mon-Fri)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="patternStartDate" class="block text-gray-700 text-sm font-medium mb-1">Pattern Start Date:</label>
-                        <input type="date" id="patternStartDate"
-                               class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    </div>
-                    <div>
-                        <label for="patternEndDate" class="block text-gray-700 text-sm font-medium mb-1">Pattern End Date:</label>
-                        <input type="date" id="patternEndDate"
-                               class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                    </div>
+                <div>
+                    <label for="simulatedEndDate" class="block text-gray-700 text-sm font-medium mb-1">End Date:</label>
+                    <input type="date" id="simulatedEndDate"
+                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
                 </div>
-                <button onclick="applyPatternAndGenerateCommits()" id="applyPatternButton"
-                        class="w-full bg-indigo-600 text-white py-3 rounded-md font-semibold hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-4">
-                    Apply Pattern & Generate Commits
-                </button>
-                <button onclick="renderHeatmapFromSimulatedData()" id="previewHeatmapButton"
-                        class="w-full bg-gray-500 text-white py-3 rounded-md font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-2">
-                    Refresh Simulated Heatmap Preview
-                </button>
-                <div id="heatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto">
-                    <!-- Cal-Heatmap will render here -->
+                <div>
+                    <label for="streakPatternSelect" class="block text-gray-700 text-sm font-medium mb-1">Choose Pattern or Random:</label>
+                    <select id="streakPatternSelect"
+                            class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="random">Random Distribution</option>
+                        <option value="30-day-streak">30-Day Streak (Daily)</option>
+                        <option value="checkerboard">Checkerboard (Every Other Day)</option>
+                        <option value="year-grid">Full Year Grid (Daily)</option>
+                        <option value="random-burst">Random Burst (5-10 commits)</option>
+                        <option value="weekdays-only">Weekdays Only (Mon-Fri)</option>
+                    </select>
+                </div>
+                <div id="numCommitsContainer">
+                    <label for="numSimulatedCommits" class="block text-gray-700 text-sm font-medium mb-1">Number of commits (for Random/Burst):</label>
+                    <input type="number" id="numSimulatedCommits" value="10" min="1" max="100"
+                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500" />
                 </div>
             </div>
+            <button onclick="generateSimulatedCommits()" id="generateSimulatedCommitsButton"
+                    class="w-full bg-purple-600 text-white py-3 rounded-md font-semibold hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-4">
+                Generate Simulated Commits
+            </button>
         </div>
 
         <div id="heatmaps" class="tab-content space-y-4">
@@ -217,6 +180,20 @@
                 </button>
                 <div id="realHeatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto">
                     <!-- Real Cal-Heatmap will render here -->
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">Simulated Heatmap Preview</h3>
+                <p class="text-sm text-gray-600 mb-2">
+                    Visualizes your generated simulated commit dates.
+                </p>
+                <button onclick="renderHeatmapFromSimulatedData()" id="previewHeatmapButton"
+                        class="w-full bg-gray-500 text-white py-3 rounded-md font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-2">
+                    Refresh Simulated Heatmap Preview
+                </button>
+                <div id="heatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto">
+                    <!-- Cal-Heatmap will render here -->
                 </div>
             </div>
         </div>
@@ -270,10 +247,7 @@
                 localStorage.setItem("gh_numSimulatedCommits", document.getElementById("numSimulatedCommits").value.trim());
                 localStorage.setItem("gh_simulatedStartDate", document.getElementById("simulatedStartDate").value.trim());
                 localStorage.setItem("gh_simulatedEndDate", document.getElementById("simulatedEndDate").value.trim());
-                localStorage.setItem("gh_simulatedFilePath", document.getElementById("simulatedFilePath").value.trim());
                 localStorage.setItem("gh_streakPatternSelect", document.getElementById("streakPatternSelect").value.trim());
-                localStorage.setItem("gh_patternStartDate", document.getElementById("patternStartDate").value.trim());
-                localStorage.setItem("gh_patternEndDate", document.getElementById("patternEndDate").value.trim());
                 localStorage.setItem("gh_commitContext", document.getElementById("commitContext").value.trim()); // Save new input
 
                 // No status message here to avoid spamming on every input change
@@ -301,10 +275,7 @@
                 document.getElementById("numSimulatedCommits").value = localStorage.getItem("gh_numSimulatedCommits") || '10';
                 document.getElementById("simulatedStartDate").value = localStorage.getItem("gh_simulatedStartDate") || '';
                 document.getElementById("simulatedEndDate").value = localStorage.getItem("gh_simulatedEndDate") || '';
-                document.getElementById("simulatedFilePath").value = localStorage.getItem("gh_simulatedFilePath") || 'history-log.txt';
-                document.getElementById("streakPatternSelect").value = localStorage.getItem("gh_streakPatternSelect") || 'none';
-                document.getElementById("patternStartDate").value = localStorage.getItem("gh_patternStartDate") || '';
-                document.getElementById("patternEndDate").value = localStorage.getItem("gh_patternEndDate") || '';
+                document.getElementById("streakPatternSelect").value = localStorage.getItem("gh_streakPatternSelect") || 'random'; // Default to random
                 document.getElementById("commitContext").value = localStorage.getItem("gh_commitContext") || ''; // Load new input
             } catch (e) {
                 console.error("Failed to load settings from local storage:", e);
@@ -480,8 +451,7 @@
             const allControls = [
                 document.getElementById('makeCommitButton'),
                 document.getElementById('toggleAutoCommitButton'),
-                document.getElementById('generateRandomCommitsButton'),
-                document.getElementById('applyPatternButton'),
+                document.getElementById('generateSimulatedCommitsButton'), // Updated ID
                 document.getElementById('previewHeatmapButton'),
                 document.getElementById('loadRealHeatmapButton'),
                 document.getElementById('token'),
@@ -495,12 +465,9 @@
                 document.getElementById('numSimulatedCommits'),
                 document.getElementById('simulatedStartDate'),
                 document.getElementById('simulatedEndDate'),
-                document.getElementById('simulatedFilePath'),
                 document.getElementById('streakPatternSelect'),
-                document.getElementById('patternStartDate'),
-                document.getElementById('patternEndDate'),
-                document.getElementById('commitContext'), // New input
-                document.getElementById('generateMessageButton') // New button
+                document.getElementById('commitContext'),
+                document.getElementById('generateMessageButton')
             ];
 
             allControls.forEach(control => {
@@ -526,7 +493,7 @@
             const token = document.getElementById("token").value.trim();
             const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
             const branch = document.getElementById("branch").value.trim();
-            const path = targetFilePath || document.getElementById("filepath").value.trim();
+            const path = targetFilePath || document.getElementById("filepath").value.trim(); // Use main filepath
             let contentInput = document.getElementById("content").value;
 
             if (selectedRepos.length === 0) {
@@ -666,26 +633,80 @@
         }
 
         /**
-         * Simulates past commits by creating multiple commits with messages and content
-         * containing randomly generated past dates within a specified range.
+         * Generates an array of dates based on the selected pattern and date range.
+         * @param {string} patternType The type of streak pattern.
+         * @param {Date} startDate The start date for the pattern.
+         * @param {Date} endDate The end date for the pattern.
+         * @param {number} numCommits The desired number of commits for random/burst.
+         * @returns {Date[]} An array of Date objects.
          */
-        async function generateRandomHistoricCommits() {
+        function generatePatternDates(patternType, startDate, endDate, numCommits) {
+            const dates = [];
+            let currentDate = new Date(startDate);
+            currentDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+            const timeDiff = endDate.getTime() - startDate.getTime(); // Difference in milliseconds
+
+            if (patternType === "random") {
+                for (let i = 0; i < numCommits; i++) {
+                    const randomTime = startDate.getTime() + Math.random() * timeDiff;
+                    dates.push(new Date(randomTime));
+                }
+            } else if (patternType === "random-burst") {
+                const actualNumBursts = Math.min(numCommits, Math.floor(Math.random() * 6) + 5); // 5 to 10 random commits, capped by numCommits
+                for (let i = 0; i < actualNumBursts; i++) {
+                    const randomTime = startDate.getTime() + Math.random() * timeDiff;
+                    dates.push(new Date(randomTime));
+                }
+            } else {
+                while (currentDate <= endDate) {
+                    const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+                    switch (patternType) {
+                        case "30-day-streak":
+                        case "year-grid": // Daily commits
+                            dates.push(new Date(currentDate));
+                            break;
+                        case "checkerboard": // Every other day
+                            const dayDiff = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                            if (dayDiff % 2 === 0) {
+                                dates.push(new Date(currentDate));
+                            }
+                            break;
+                        case "weekdays-only": // Mon-Fri
+                            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                                dates.push(new Date(currentDate));
+                            }
+                            break;
+                    }
+                    currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
+                }
+            }
+            return dates;
+        }
+
+        /**
+         * Generates simulated historic commits based on selected pattern or random distribution.
+         */
+        async function generateSimulatedCommits() { // Consolidated function
             const numCommits = parseInt(document.getElementById("numSimulatedCommits").value);
             const simulatedStartDateStr = document.getElementById("simulatedStartDate").value;
             const simulatedEndDateStr = document.getElementById("simulatedEndDate").value;
-            const simulatedFilePath = document.getElementById("simulatedFilePath").value.trim();
+            const patternType = document.getElementById("streakPatternSelect").value;
+            const mainFilePath = document.getElementById("filepath").value.trim(); // Use main filepath
 
-            if (isNaN(numCommits) || numCommits <= 0) {
-                showStatusMessage("Please enter a valid positive number of simulated commits.", "error");
-                return;
-            }
             if (!simulatedStartDateStr || !simulatedEndDateStr) {
-                showStatusMessage("Please select both a Start Date and an End Date for random simulated commits.", "error");
+                showStatusMessage("Please select both a Start Date and an End Date for simulated commits.", "error");
                 return;
             }
-            if (!simulatedFilePath) {
-                showStatusMessage("Please enter a File Path for historic commits.", "error");
+            if (!mainFilePath) {
+                showStatusMessage("Please enter a File Path in 'Main Controls' for historic commits.", "error");
                 return;
+            }
+            if (patternType === "random" || patternType === "random-burst") {
+                if (isNaN(numCommits) || numCommits <= 0) {
+                    showStatusMessage("Please enter a valid positive number of commits for random/burst patterns.", "error");
+                    return;
+                }
             }
 
             const startDate = new Date(simulatedStartDateStr);
@@ -697,135 +718,28 @@
             }
 
             toggleLoading(true);
-            showStatusMessage(`Starting simulation of ${numCommits} random commits between ${simulatedStartDateStr} and ${simulatedEndDateStr}...`, "info");
+            showStatusMessage(`Starting simulation of commits with '${patternType}' pattern between ${simulatedStartDateStr} and ${simulatedEndDateStr}...`, "info");
 
-            simulatedCommitDates = []; // Clear previous simulated dates
-            let successfulCommits = 0;
-            const timeDiff = endDate.getTime() - startDate.getTime(); // Difference in milliseconds
-
-            for (let i = 0; i < numCommits; i++) {
-                // Generate a random timestamp within the range
-                const randomTime = startDate.getTime() + Math.random() * timeDiff;
-                const pastDate = new Date(randomTime);
-                const formattedPastDate = pastDate.toLocaleString();
-
-                showStatusMessage(`Simulating commit ${i + 1}/${numCommits} for date: ${formattedPastDate}...`, "info");
-
-                const success = await commitToGitHub(simulatedFilePath, formattedPastDate);
-                if (success) {
-                    successfulCommits++;
-                    simulatedCommitDates.push(pastDate); // Store date for heatmap
-                }
-
-                await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
-            }
-
-            showStatusMessage(`Simulation complete: ${successfulCommits} out of ${numCommits} commits successful.`, successfulCommits === numCommits ? "success" : "error");
-            toggleLoading(false);
-            renderHeatmapFromSimulatedData(); // Render heatmap after simulation
-        }
-
-        /**
-         * Generates an array of dates based on the selected pattern and date range.
-         * @param {string} patternType The type of streak pattern.
-         * @param {Date} startDate The start date for the pattern.
-         * @param {Date} endDate The end date for the pattern.
-         * @returns {Date[]} An array of Date objects.
-         */
-        function generatePatternDates(patternType, startDate, endDate) {
-            const dates = [];
-            let currentDate = new Date(startDate);
-            currentDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
-
-            while (currentDate <= endDate) {
-                const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-
-                switch (patternType) {
-                    case "30-day-streak":
-                    case "year-grid": // Daily commits
-                        dates.push(new Date(currentDate));
-                        break;
-                    case "checkerboard": // Every other day
-                        const dayDiff = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                        if (dayDiff % 2 === 0) {
-                            dates.push(new Date(currentDate));
-                        }
-                        break;
-                    case "weekdays-only": // Mon-Fri
-                        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                            dates.push(new Date(currentDate));
-                        }
-                        break;
-                    case "random-burst":
-                        // This pattern will be handled by generating a few random dates within the range later
-                        // For now, we'll just push one date if this is selected, then let the commit loop handle the "burst"
-                        break;
-                }
-                currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
-            }
-
-            if (patternType === "random-burst") {
-                const numBursts = Math.floor(Math.random() * 6) + 5; // 5 to 10 random commits
-                for (let i = 0; i < numBursts; i++) {
-                    const randomTime = startDate.getTime() + Math.random() * (endDate.getTime() - startDate.getTime());
-                    dates.push(new Date(randomTime));
-                }
-            }
-
-            return dates;
-        }
-
-        /**
-         * Applies the selected pattern and generates commits based on the dates.
-         */
-        async function applyPatternAndGenerateCommits() {
-            const patternType = document.getElementById("streakPatternSelect").value;
-            const patternStartDateStr = document.getElementById("patternStartDate").value;
-            const patternEndDateStr = document.getElementById("patternEndDate").value;
-            const simulatedFilePath = document.getElementById("simulatedFilePath").value.trim(); // Use the same file path for patterns
-
-            if (patternType === "none") {
-                showStatusMessage("Please select a pattern to apply.", "error");
-                return;
-            }
-            if (!patternStartDateStr || !patternEndDateStr) {
-                showStatusMessage("Please select both a Start Date and an End Date for the pattern.", "error");
-                return;
-            }
-            if (!simulatedFilePath) {
-                showStatusMessage("Please enter a File Path for historic commits.", "error");
-                return;
-            }
-
-            const startDate = new Date(patternStartDateStr);
-            const endDate = new Date(patternEndDateStr);
-
-            if (startDate > endDate) {
-                showStatusMessage("Pattern Start Date cannot be after Pattern End Date.", "error");
-                return;
-            }
-
-            toggleLoading(true);
-            showStatusMessage(`Generating commits for '${patternType}' pattern between ${patternStartDateStr} and ${patternEndDateStr}...`, "info");
-
-            const datesToCommit = generatePatternDates(patternType, startDate, endDate);
+            const datesToCommit = generatePatternDates(patternType, startDate, endDate, numCommits);
             simulatedCommitDates = []; // Clear previous simulated dates
             let successfulCommits = 0;
 
             for (const date of datesToCommit) {
                 const formattedDate = date.toLocaleString();
-                showStatusMessage(`Committing for date: ${formattedDate}...`, "info");
-                const success = await commitToGitHub(simulatedFilePath, formattedDate);
+                showStatusMessage(`Simulating commit ${successfulCommits + 1}/${datesToCommit.length} for date: ${formattedDate}...`, "info");
+
+                const success = await commitToGitHub(mainFilePath, formattedDate); // Use mainFilePath
                 if (success) {
                     successfulCommits++;
                     simulatedCommitDates.push(date); // Store date for heatmap
                 }
+
                 await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
             }
 
-            showStatusMessage(`Pattern generation complete: ${successfulCommits} out of ${datesToCommit.length} commits successful.`, successfulCommits === datesToCommit.length ? "success" : "error");
+            showStatusMessage(`Simulation complete: ${successfulCommits} out of ${datesToCommit.length} commits successful.`, successfulCommits === datesToCommit.length ? "success" : "error");
             toggleLoading(false);
-            renderHeatmapFromSimulatedData(); // Render heatmap after pattern generation
+            renderHeatmapFromSimulatedData(); // Render heatmap after simulation
         }
 
 
@@ -1070,13 +984,21 @@
         document.getElementById("numSimulatedCommits").addEventListener("input", saveSettingsToStorage);
         document.getElementById("simulatedStartDate").addEventListener("change", saveSettingsToStorage);
         document.getElementById("simulatedEndDate").addEventListener("change", saveSettingsToStorage);
-        document.getElementById("simulatedFilePath").addEventListener("input", saveSettingsToStorage);
-        document.getElementById("streakPatternSelect").addEventListener("change", saveSettingsToStorage);
-        document.getElementById("patternStartDate").addEventListener("change", saveSettingsToStorage);
-        document.getElementById("patternEndDate").addEventListener("change", saveSettingsToStorage);
-        document.getElementById("commitContext").addEventListener("input", saveSettingsToStorage); // Save new input
+        document.getElementById("streakPatternSelect").addEventListener("change", () => {
+            saveSettingsToStorage();
+            // Toggle visibility of numCommitsContainer based on selected pattern
+            const patternType = document.getElementById("streakPatternSelect").value;
+            const numCommitsContainer = document.getElementById("numCommitsContainer");
+            if (patternType === "random" || patternType === "random-burst") {
+                numCommitsContainer.style.display = 'block';
+            } else {
+                numCommitsContainer.style.display = 'none';
+            }
+        });
+        document.getElementById("commitContext").addEventListener("input", saveSettingsToStorage);
         document.getElementById("loadRealHeatmapButton").addEventListener("click", loadRealContributionHeatmap);
-        document.getElementById("generateMessageButton").addEventListener("click", generateSmartCommitMessage); // New event listener for AI button
+        document.getElementById("generateMessageButton").addEventListener("click", generateSmartCommitMessage);
+        document.getElementById("generateSimulatedCommitsButton").addEventListener("click", generateSimulatedCommits); // Updated event listener
 
 
         // Tab switching logic
@@ -1108,6 +1030,15 @@
             setTimeout(loadUserRepos, 100);
             // Activate the first tab by default
             document.querySelector('.tab-button[data-tab="main-controls"]').click();
+
+            // Initial state for numCommitsContainer based on loaded pattern
+            const patternType = document.getElementById("streakPatternSelect").value;
+            const numCommitsContainer = document.getElementById("numCommitsContainer");
+            if (patternType === "random" || patternType === "random-burst") {
+                numCommitsContainer.style.display = 'block';
+            } else {
+                numCommitsContainer.style.display = 'none';
+            }
         };
 
         // Service Worker Registration
