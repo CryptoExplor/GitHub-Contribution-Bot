@@ -98,6 +98,7 @@
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="historic-commits">Historic Commits</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="heatmaps">Heatmaps</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="about">About</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="stats">Stats</button> <!-- NEW: Stats Tab Button -->
             <!-- NEW: User Guide Tab Button -->
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="user-guide">User Guide</button>
         </div>
@@ -285,6 +286,22 @@
             </div>
         </div>
 
+        <!-- NEW: Stats Tab Content -->
+        <div id="stats" class="tab-content space-y-4">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">📈 Bot Usage Stats</h3>
+            <ul class="text-sm space-y-2 text-gray-700 dark:text-gray-300">
+                <li>🔢 Total Commits: <strong id="statsTotalCommits">0</strong></li>
+                <li>🛡️ Safe Mode Commits: <strong id="statsSafeModeCommits">0 (0%)</strong></li>
+                <li>📅 First Commit Date: <strong id="statsFirstCommitDate">N/A</strong></li>
+                <li>⏱️ Average Interval: <strong id="statsAverageInterval">N/A</strong></li>
+                <li>📁 Top Used Repo: <strong id="statsTopUsedRepo">N/A</strong></li>
+            </ul>
+            <button onclick="resetStats()" id="resetStatsButton"
+                    class="w-full bg-red-500 text-white py-2 rounded-md font-semibold hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-4">
+                Reset Stats
+            </button>
+        </div>
+
         <div id="about" class="tab-content space-y-4">
             <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">About This Project</h3>
             <p class="text-gray-700 dark:text-gray-300">
@@ -345,6 +362,13 @@
         let safeModeLoopActive = false; // Controlled by toggleAutoCommit to start/stop the loop
         let smartRotationEnabled = false; // NEW: Controlled by checkbox for smart rotation
         let currentRepoIndex = 0; // NEW: Index for smart rotation
+
+        // Stats variables
+        let totalCommits = 0;
+        let safeModeCommitCount = 0;
+        let firstCommitDate = null; // Stored as timestamp
+        let commitTimestamps = []; // Array of timestamps for average interval calculation
+        let repoCommitCounts = {}; // Object to store commit counts per repository
 
         document.getElementById('safeMode').addEventListener('change', (e) => {
             safeModeEnabled = e.target.checked;
@@ -439,7 +463,7 @@
         let simulatedCommitDates = []; // Stores dates of simulated commits for heatmap
 
         /**
-         * Saves all relevant settings to local storage.
+         * Saves all relevant settings and stats to local storage.
          */
         function saveSettingsToStorage() {
             try {
@@ -465,6 +489,12 @@
                 // NEW: Save smart rotation preference
                 localStorage.setItem("smartRotation", document.getElementById("smartRotation").checked);
 
+                // Save stats data
+                localStorage.setItem("stats_totalCommits", totalCommits);
+                localStorage.setItem("stats_safeModeCommitCount", safeModeCommitCount);
+                localStorage.setItem("stats_firstCommitDate", firstCommitDate); // Store timestamp
+                localStorage.setItem("stats_commitTimestamps", JSON.stringify(commitTimestamps));
+                localStorage.setItem("stats_repoCommitCounts", JSON.stringify(repoCommitCounts));
 
                 // No status message here to avoid spamming on every input change
             } catch (e) {
@@ -474,7 +504,7 @@
         }
 
         /**
-         * Loads all relevant settings from local storage.
+         * Loads all relevant settings and stats from local storage.
          */
         function loadSettingsFromStorage() {
             try {
@@ -505,12 +535,79 @@
                 smartRotationEnabled = localStorage.getItem("smartRotation") === "true";
                 document.getElementById("smartRotation").checked = smartRotationEnabled;
 
+                // Load stats data
+                totalCommits = parseInt(localStorage.getItem("stats_totalCommits") || '0');
+                safeModeCommitCount = parseInt(localStorage.getItem("stats_safeModeCommitCount") || '0');
+                firstCommitDate = parseInt(localStorage.getItem("stats_firstCommitDate") || '0') || null;
+                commitTimestamps = JSON.parse(localStorage.getItem("stats_commitTimestamps") || '[]');
+                repoCommitCounts = JSON.parse(localStorage.getItem("stats_repoCommitCounts") || '{}');
 
             } catch (e) {
                 console.error("Failed to load settings from local storage:", e);
                 showStatusMessage("Error loading settings locally. Please enter them manually.", "error");
             }
         }
+
+        /**
+         * Updates the display of the stats panel.
+         */
+        function updateStatsDisplay() {
+            document.getElementById("statsTotalCommits").textContent = totalCommits;
+
+            const safeModePercentage = totalCommits > 0 ? ((safeModeCommitCount / totalCommits) * 100).toFixed(1) : 0;
+            document.getElementById("statsSafeModeCommits").textContent = `${safeModeCommitCount} (${safeModePercentage}%)`;
+
+            document.getElementById("statsFirstCommitDate").textContent = firstCommitDate ? new Date(firstCommitDate).toLocaleDateString() : "N/A";
+
+            let averageInterval = "N/A";
+            if (commitTimestamps.length > 1) {
+                const sortedTimestamps = [...commitTimestamps].sort((a, b) => a - b);
+                let totalDiff = 0;
+                for (let i = 1; i < sortedTimestamps.length; i++) {
+                    totalDiff += (sortedTimestamps[i] - sortedTimestamps[i-1]);
+                }
+                const avgDiffMs = totalDiff / (sortedTimestamps.length - 1);
+                
+                // Convert to human-readable format (minutes, hours, days)
+                if (avgDiffMs < 60 * 1000) { // Less than 1 minute
+                    averageInterval = `${(avgDiffMs / 1000).toFixed(0)} seconds`;
+                } else if (avgDiffMs < 60 * 60 * 1000) { // Less than 1 hour
+                    averageInterval = `${(avgDiffMs / (60 * 1000)).toFixed(1)} minutes`;
+                } else if (avgDiffMs < 24 * 60 * 60 * 1000) { // Less than 1 day
+                    averageInterval = `${(avgDiffMs / (60 * 60 * 1000)).toFixed(1)} hours`;
+                } else {
+                    averageInterval = `${(avgDiffMs / (24 * 60 * 60 * 1000)).toFixed(1)} days`;
+                }
+            }
+            document.getElementById("statsAverageInterval").textContent = averageInterval;
+
+            let topUsedRepo = "N/A";
+            let maxCommits = 0;
+            for (const repo in repoCommitCounts) {
+                if (repoCommitCounts[repo] > maxCommits) {
+                    maxCommits = repoCommitCounts[repo];
+                    topUsedRepo = repo;
+                }
+            }
+            document.getElementById("statsTopUsedRepo").textContent = topUsedRepo;
+        }
+
+        /**
+         * Resets all usage statistics.
+         */
+        function resetStats() {
+            if (confirm("Are you sure you want to reset all usage statistics? This action cannot be undone.")) {
+                totalCommits = 0;
+                safeModeCommitCount = 0;
+                firstCommitDate = null;
+                commitTimestamps = [];
+                repoCommitCounts = {};
+                saveSettingsToStorage(); // Persist reset state
+                updateStatsDisplay(); // Update UI
+                showStatusMessage("Usage statistics have been reset.", "info");
+            }
+        }
+
 
         /**
          * Fetches user repositories from GitHub and populates the multi-select dropdown.
@@ -700,7 +797,8 @@
                 document.getElementById('generateMessageButton'),
                 document.getElementById('safeMode'), // Also disable safe mode checkbox
                 document.getElementById('darkModeToggle'), // Disable dark mode toggle during loading
-                document.getElementById('smartRotation') // NEW: Disable smart rotation toggle during loading
+                document.getElementById('smartRotation'), // Disable smart rotation toggle during loading
+                document.getElementById('resetStatsButton') // Disable reset stats button during loading
             ];
 
             allControls.forEach(control => {
@@ -744,7 +842,7 @@
             let repo;
             if (repoOverride) { // If safe mode or other auto-process provided a repo
                 repo = repoOverride;
-            } else if (smartRotationEnabled && selectedRepos.length > 0) { // NEW: Smart Rotation for manual commits
+            } else if (smartRotationEnabled && selectedRepos.length > 0) { // Smart Rotation for manual commits
                 repo = selectedRepos[currentRepoIndex];
                 currentRepoIndex = (currentRepoIndex + 1) % selectedRepos.length; // Move to next repo, loop back if end reached
             } else { // Random selection for manual commits if smart rotation is off
@@ -819,6 +917,19 @@
                     const commitHash = result.commit.sha.substring(0, 7); // Get short hash
                     const commitRepo = repo.split('/')[1]; // Get repo name
                     const cliOutput = `[${branch} ${commitHash}] ${commitMessage}\n 1 file changed, 1 insertion(+)`;
+
+                    // Update stats
+                    totalCommits++;
+                    if (safeModeLoopActive || commitMessageOverride) { // Assuming commitMessageOverride implies a "bot" commit for stats
+                        safeModeCommitCount++;
+                    }
+                    if (firstCommitDate === null) {
+                        firstCommitDate = Date.now();
+                    }
+                    commitTimestamps.push(Date.now());
+                    repoCommitCounts[repo] = (repoCommitCounts[repo] || 0) + 1;
+                    saveSettingsToStorage(); // Save updated stats
+                    updateStatsDisplay(); // Update stats UI
 
                     if (!dateForMessage && !safeModeLoopActive && !commitMessageOverride) {
                         showStatusMessage(`✅ Commit successful to ${repo}!\n<pre class="bg-gray-100 p-2 rounded mt-1 text-xs dark:bg-gray-700 dark:text-gray-300">${cliOutput}</pre>Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
@@ -1065,14 +1176,13 @@
             const startRange = firstDate < yearAgo ? firstDate : yearAgo;
             const endRange = lastDate > now ? lastDate : now;
 
-
             const cal = new CalHeatmap();
             cal.init({
                 itemSelector: "#heatmapContainer",
-                domain: "month", // Display by month
-                subDomain: "day", // Display individual days
-                range: 12, // Show 12 months (a year)
-                start: new Date(endRange.getFullYear(), endRange.getMonth() - 11, 1), // Start 11 months before the end date to show a full year
+                domain: "month",
+                subDomain: "day",
+                range: 12, // Display 12 months
+                start: new Date(endRange.getFullYear(), endRange.getMonth() - 11, 1), // Start 11 months before the end date
                 data: data,
                 legend: [1, 2, 3, 4],
                 tooltip: true,
@@ -1330,6 +1440,7 @@
             document.documentElement.classList.toggle("dark");
             saveSettingsToStorage(); // Save dark mode preference
         });
+        document.getElementById("resetStatsButton").addEventListener("click", resetStats);
 
 
         // Tab switching logic
@@ -1348,6 +1459,10 @@
                 // If switching to heatmaps tab, automatically load real heatmap if username is present
                 if (tabId === 'heatmaps' && document.getElementById('username').value.trim() !== '') {
                     loadRealContributionHeatmap();
+                }
+                // If switching to stats tab, update display
+                if (tabId === 'stats') {
+                    updateStatsDisplay();
                 }
             });
         });
@@ -1370,6 +1485,7 @@
             } else {
                 numCommitsContainer.style.display = 'none';
             }
+            updateStatsDisplay(); // Initial update of stats display
         };
 
         // Service Worker Registration
