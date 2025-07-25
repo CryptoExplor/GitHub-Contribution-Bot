@@ -109,7 +109,10 @@
                 <label for="token" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">GitHub Personal Access Token (PAT):</label>
                 <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Make sure your PAT has 'repo' scope.</p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
+                    Required scopes: <code>repo</code> <code>read:user</code>
+                    <span class="ml-1 text-blue-600 underline cursor-pointer" title="repo = push/pull access; read:user = heatmap access.">[?]</span>
+                </p>
             </div>
 
             <!-- New: Gemini API Key Input -->
@@ -644,7 +647,26 @@
          * Resets all usage statistics.
          */
         function resetStats() {
-            if (confirm("Are you sure you want to reset all usage statistics? This action cannot be undone.")) {
+            // Replaced alert with a custom modal-like confirmation
+            const confirmReset = document.createElement('div');
+            confirmReset.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            confirmReset.innerHTML = `
+                <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm dark:bg-gray-800 dark:text-white">
+                    <h3 class="text-lg font-bold mb-4">Confirm Reset</h3>
+                    <p class="text-gray-700 dark:text-gray-300 mb-6">Are you sure you want to reset all usage statistics? This action cannot be undone.</p>
+                    <div class="flex justify-end space-x-2">
+                        <button id="cancelReset" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Cancel</button>
+                        <button id="confirmReset" class="bg-red-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-700">Reset</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(confirmReset);
+
+            document.getElementById('cancelReset').onclick = () => {
+                document.body.removeChild(confirmReset);
+            };
+
+            document.getElementById('confirmReset').onclick = () => {
                 totalCommits = 0;
                 safeModeCommitCount = 0;
                 firstCommitDate = null;
@@ -653,7 +675,8 @@
                 saveSettingsToStorage(); // Persist reset state
                 updateStatsDisplay(); // Update UI
                 showStatusMessage("Usage statistics have been reset.", "info");
-            }
+                document.body.removeChild(confirmReset);
+            };
         }
 
 
@@ -1034,19 +1057,10 @@
             }
 
             // If commit preview is enabled and this is not a simulated historic commit, show preview first
-            if (commitPreviewEnabled && !dateForMessage && !isAutoCommit) {
-                previewCommitDetails = {
-                    repo: repo,
-                    branch: branch,
-                    path: path,
-                    message: commitMessage,
-                    content: finalContent,
-                    isAutoCommit: isAutoCommit // Pass the flag
-                };
-                showCommitPreviewModal();
-                return true; // Indicate that preview is shown, actual commit will happen later
-            } else if (commitPreviewEnabled && isAutoCommit) {
-                // For auto-commits with preview enabled, show countdown
+            // Note: The logic for showing the preview for manual commits is now handled in `makeSingleCommit`
+            // and for auto-commits in `toggleAutoCommit` and `safeAutoCommitLoop`.
+            // This `commitToGitHub` function will only be called *after* the preview is handled or if preview is disabled.
+            if (commitPreviewEnabled && !dateForMessage && isAutoCommit) { // Only for auto-commits that need preview
                 previewCommitDetails = {
                     repo: repo,
                     branch: branch,
