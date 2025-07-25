@@ -16,39 +16,70 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
     <div class="bg-white shadow-xl rounded-2xl p-8 max-w-xl w-full">
-        <h2 class="text-2xl font-bold mb-4 text-center text-gray-800">GitHub Auto Commit Bot</h2>
+        <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">GitHub Auto Commit Bot</h2>
 
         <div class="space-y-4">
-            <label for="token" class="block text-gray-700 text-sm font-medium mb-1">GitHub Personal Access Token (PAT):</label>
-            <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                   class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <p class="text-xs text-gray-500 mt-1">Make sure your PAT has 'repo' scope.</p>
+            <div>
+                <label for="token" class="block text-gray-700 text-sm font-medium mb-1">GitHub Personal Access Token (PAT):</label>
+                <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <p class="text-xs text-gray-500 mt-1">Make sure your PAT has 'repo' scope.</p>
+            </div>
 
-            <label for="username" class="block text-gray-700 text-sm font-medium mb-1">GitHub Username:</label>
-            <input type="text" id="username" placeholder="Your GitHub Username"
-                   class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <div>
+                <label for="username" class="block text-gray-700 text-sm font-medium mb-1">GitHub Username:</label>
+                <input type="text" id="username" placeholder="Your GitHub Username"
+                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
 
-            <label for="repo" class="block text-gray-700 text-sm font-medium mb-1">Select Repository:</label>
-            <select id="repo" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option value="">Loading Repos...</option>
-            </select>
+            <div>
+                <label for="repo" class="block text-gray-700 text-sm font-medium mb-1">Select Repository:</label>
+                <select id="repo" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Loading Repos...</option>
+                </select>
+            </div>
 
-            <label for="filepath" class="block text-gray-700 text-sm font-medium mb-1">File Path (e.g., README.md or new-file.txt):</label>
-            <input type="text" id="filepath" placeholder="README.md"
-                   class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <div>
+                <label for="branch" class="block text-gray-700 text-sm font-medium mb-1">Select Branch:</label>
+                <select id="branch" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Loading Branches...</option>
+                </select>
+            </div>
 
-            <label for="content" class="block text-gray-700 text-sm font-medium mb-1">Content to commit:</label>
-            <textarea id="content" rows="6" placeholder="Leave blank for auto-generated content..."
-                      class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"></textarea>
+            <div>
+                <label for="filepath" class="block text-gray-700 text-sm font-medium mb-1">File Path (e.g., README.md or new-file.txt):</label>
+                <input type="text" id="filepath" placeholder="README.md"
+                       class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+
+            <div>
+                <label for="content" class="block text-gray-700 text-sm font-medium mb-1">Content to commit:</label>
+                <textarea id="content" rows="6" placeholder="Leave blank for auto-generated content..."
+                          class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"></textarea>
+            </div>
 
             <button onclick="commitToGitHub()" id="makeCommitButton"
-                    class="w-full bg-blue-600 text-white py-2 rounded-md font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
+                    class="w-full bg-blue-600 text-white py-3 rounded-md font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
                 Make Commit
             </button>
-            <button onclick="toggleAutoCommit()" id="toggleAutoCommitButton"
-                    class="w-full bg-green-600 text-white py-2 rounded-md font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
-                Toggle Daily Auto Commit
-            </button>
+
+            <div class="border-t border-gray-200 pt-4 mt-4">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">Auto Commit Settings</h3>
+                <div class="flex space-x-2 mb-4">
+                    <input type="number" id="intervalValue" value="24" min="1"
+                           class="w-1/3 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500" />
+                    <select id="intervalType"
+                            class="w-2/3 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="hours">Hours</option>
+                        <option value="minutes">Minutes</option>
+                        <option value="days">Days</option>
+                    </select>
+                </div>
+                <button onclick="toggleAutoCommit()" id="toggleAutoCommitButton"
+                        class="w-full bg-green-600 text-white py-3 rounded-md font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
+                    Toggle Auto Commit
+                </button>
+            </div>
         </div>
 
         <div class="mt-6">
@@ -71,36 +102,48 @@
             "style: format cleanup",
             "refactor: structure improvement",
             "feat: auto commit bot",
-            "update: content refresh"
+            "update: content refresh",
+            "build: dependency update",
+            "perf: optimization",
+            "ci: workflow adjustment"
         ];
 
-        let autoCommitInterval = null;
+        let autoCommitInterval = null; // Stores the interval ID for auto-commit
 
         /**
-         * Saves the GitHub token to local storage.
-         * @param {string} token The GitHub Personal Access Token.
+         * Saves the GitHub token, username, selected repo, and selected branch to local storage.
          */
-        function saveTokenToStorage(token) {
+        function saveSettingsToStorage() {
             try {
-                localStorage.setItem("gh_token", token);
+                localStorage.setItem("gh_token", document.getElementById("token").value.trim());
+                localStorage.setItem("gh_username", document.getElementById("username").value.trim());
+                localStorage.setItem("gh_repo", document.getElementById("repo").value.trim());
+                localStorage.setItem("gh_branch", document.getElementById("branch").value.trim());
+                localStorage.setItem("gh_filepath", document.getElementById("filepath").value.trim());
+                localStorage.setItem("gh_intervalValue", document.getElementById("intervalValue").value.trim());
+                localStorage.setItem("gh_intervalType", document.getElementById("intervalType").value.trim());
+                showStatusMessage("Settings saved locally.", "info");
             } catch (e) {
-                console.error("Failed to save token to local storage:", e);
-                showStatusMessage("Error saving token locally. Please check browser settings.", "error");
+                console.error("Failed to save settings to local storage:", e);
+                showStatusMessage("Error saving settings locally. Please check browser settings.", "error");
             }
         }
 
         /**
-         * Loads the GitHub token from local storage.
+         * Loads GitHub token, username, and selected repo/branch from local storage.
          */
-        function loadTokenFromStorage() {
+        function loadSettingsFromStorage() {
             try {
-                const saved = localStorage.getItem("gh_token");
-                if (saved) {
-                    document.getElementById("token").value = saved;
-                }
+                document.getElementById("token").value = localStorage.getItem("gh_token") || '';
+                document.getElementById("username").value = localStorage.getItem("gh_username") || '';
+                document.getElementById("repo").value = localStorage.getItem("gh_repo") || '';
+                document.getElementById("branch").value = localStorage.getItem("gh_branch") || '';
+                document.getElementById("filepath").value = localStorage.getItem("gh_filepath") || 'README.md';
+                document.getElementById("intervalValue").value = localStorage.getItem("gh_intervalValue") || '24';
+                document.getElementById("intervalType").value = localStorage.getItem("gh_intervalType") || 'hours';
             } catch (e) {
-                console.error("Failed to load token from local storage:", e);
-                showStatusMessage("Error loading token locally. Please enter it manually.", "error");
+                console.error("Failed to load settings from local storage:", e);
+                showStatusMessage("Error loading settings locally. Please enter them manually.", "error");
             }
         }
 
@@ -111,7 +154,10 @@
             const token = document.getElementById("token").value.trim();
             const username = document.getElementById("username").value.trim();
             const repoSelect = document.getElementById("repo");
+            const branchSelect = document.getElementById("branch");
+
             repoSelect.innerHTML = "<option value=''>Loading Repos...</option>"; // Reset and show loading
+            branchSelect.innerHTML = "<option value=''>Select Repo First</option>"; // Reset branch dropdown
 
             if (!token || !username) {
                 repoSelect.innerHTML = "<option value=''>Enter Token and Username</option>";
@@ -137,11 +183,75 @@
                     option.innerText = repo.full_name;
                     repoSelect.appendChild(option);
                 });
-                showStatusMessage("Repositories loaded successfully.", "success");
+
+                // Set previously selected repo if it exists
+                const savedRepo = localStorage.getItem("gh_repo");
+                if (savedRepo && repos.some(r => r.full_name === savedRepo)) {
+                    repoSelect.value = savedRepo;
+                    loadRepoBranches(); // Load branches for the saved repo
+                } else {
+                    showStatusMessage("Repositories loaded successfully. Select a repository.", "success");
+                }
+
             } catch (err) {
                 console.error("Error loading repositories:", err);
                 repoSelect.innerHTML = "<option value=''>Error loading repos</option>";
+                branchSelect.innerHTML = "<option value=''>Error loading branches</option>";
                 showStatusMessage(`Error loading repositories: ${err.message}. Check token/username.`, "error");
+            }
+        }
+
+        /**
+         * Fetches branches for the selected repository and populates the dropdown.
+         */
+        async function loadRepoBranches() {
+            const token = document.getElementById("token").value.trim();
+            const repoFullName = document.getElementById("repo").value.trim();
+            const branchSelect = document.getElementById("branch");
+
+            branchSelect.innerHTML = "<option value=''>Loading Branches...</option>"; // Reset and show loading
+
+            if (!token || !repoFullName) {
+                branchSelect.innerHTML = "<option value=''>Select Repo First</option>";
+                return;
+            }
+
+            const headers = {
+                "Authorization": `token ${token}`,
+                "Accept": "application/vnd.github.v3+json"
+            };
+
+            try {
+                const res = await fetch(`https://api.github.com/repos/${repoFullName}/branches`, { headers });
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.message || "Failed to fetch branches.");
+                }
+                const branches = await res.json();
+                branchSelect.innerHTML = "<option value=''>Select Branch</option>"; // Clear loading message
+                branches.forEach(branch => {
+                    const option = document.createElement("option");
+                    option.value = branch.name;
+                    option.innerText = branch.name;
+                    branchSelect.appendChild(option);
+                });
+
+                // Set previously selected branch if it exists
+                const savedBranch = localStorage.getItem("gh_branch");
+                if (savedBranch && branches.some(b => b.name === savedBranch)) {
+                    branchSelect.value = savedBranch;
+                    showStatusMessage("Branches loaded successfully.", "success");
+                } else if (branches.length > 0) {
+                    branchSelect.value = branches[0].name; // Select the first branch by default
+                    showStatusMessage("Branches loaded successfully. Defaulting to first branch.", "success");
+                } else {
+                    showStatusMessage("No branches found for this repository.", "info");
+                }
+
+            } catch (err) {
+                console.error("Error loading branches:", err);
+                branchSelect.innerHTML = "<option value=''>Error loading branches</option>";
+                showStatusMessage(`Error loading branches: ${err.message}.`, "error");
             }
         }
 
@@ -192,6 +302,14 @@
             document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
             document.getElementById('makeCommitButton').disabled = show;
             document.getElementById('toggleAutoCommitButton').disabled = show;
+            document.getElementById('token').disabled = show;
+            document.getElementById('username').disabled = show;
+            document.getElementById('repo').disabled = show;
+            document.getElementById('branch').disabled = show;
+            document.getElementById('filepath').disabled = show;
+            document.getElementById('content').disabled = show;
+            document.getElementById('intervalValue').disabled = show;
+            document.getElementById('intervalType').disabled = show;
         }
 
         /**
@@ -200,15 +318,16 @@
         async function commitToGitHub() {
             const token = document.getElementById("token").value.trim();
             const repo = document.getElementById("repo").value.trim();
+            const branch = document.getElementById("branch").value.trim();
             const path = document.getElementById("filepath").value.trim();
             let contentInput = document.getElementById("content").value;
 
-            if (!token || !repo || !path) {
-                showStatusMessage("Please fill in all required fields: Token, Repository, and File Path.", "error");
+            if (!token || !repo || !branch || !path) {
+                showStatusMessage("Please fill in all required fields: Token, Repository, Branch, and File Path.", "error");
                 return;
             }
 
-            saveTokenToStorage(token); // Save token on successful input
+            saveSettingsToStorage(); // Save settings on successful input
 
             toggleLoading(true);
             showStatusMessage("Attempting to commit...", "info");
@@ -223,15 +342,15 @@
             let currentContent = '';
 
             try {
-                // Try to get the file's current SHA and content
-                const getRes = await fetch(apiUrl, { headers });
+                // Try to get the file's current SHA and content from the specified branch
+                const getRes = await fetch(`${apiUrl}?ref=${branch}`, { headers });
                 if (getRes.status === 200) {
                     const data = await getRes.json();
                     sha = data.sha;
                     currentContent = fromBase64(data.content);
-                    showStatusMessage(`File '${path}' found. Preparing to update...`, "info");
+                    showStatusMessage(`File '${path}' found on branch '${branch}'. Preparing to update...`, "info");
                 } else if (getRes.status === 404) {
-                    showStatusMessage(`File '${path}' not found. Preparing to create new file...`, "info");
+                    showStatusMessage(`File '${path}' not found on branch '${branch}'. Preparing to create new file...`, "info");
                     // No SHA needed for new file creation
                 } else {
                     const errorData = await getRes.json();
@@ -254,7 +373,8 @@
             const body = {
                 message: commitMessage,
                 content: encodedContent,
-                sha: sha // sha is null for new files, which is correct for GitHub API
+                sha: sha, // sha is null for new files, which is correct for GitHub API
+                branch: branch // Specify the branch for the commit
             };
 
             try {
@@ -267,7 +387,7 @@
                 const result = await putRes.json();
 
                 if (putRes.ok) {
-                    showStatusMessage(`✅ Commit successful! Check your repo: ${result.commit.html_url}`, "success");
+                    showStatusMessage(`✅ Commit successful! Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
                 } else {
                     throw new Error(result.message || "Unknown error during commit.");
                 }
@@ -280,35 +400,71 @@
         }
 
         /**
-         * Toggles the daily auto-commit feature.
+         * Toggles the daily auto-commit feature based on user-defined interval.
          */
         function toggleAutoCommit() {
             if (autoCommitInterval) {
                 clearInterval(autoCommitInterval);
                 autoCommitInterval = null;
-                document.getElementById("toggleAutoCommitButton").textContent = "Toggle Daily Auto Commit";
+                document.getElementById("toggleAutoCommitButton").textContent = "Toggle Auto Commit";
                 document.getElementById("toggleAutoCommitButton").classList.remove('bg-red-600', 'hover:bg-red-700');
                 document.getElementById("toggleAutoCommitButton").classList.add('bg-green-600', 'hover:bg-green-700');
                 showStatusMessage("❌ Auto Commit Disabled", "error");
             } else {
+                const intervalValue = parseInt(document.getElementById("intervalValue").value);
+                const intervalType = document.getElementById("intervalType").value;
+
+                if (isNaN(intervalValue) || intervalValue <= 0) {
+                    showStatusMessage("Please enter a valid positive number for the interval.", "error");
+                    return;
+                }
+
+                let intervalMilliseconds = 0;
+                switch (intervalType) {
+                    case "minutes":
+                        intervalMilliseconds = intervalValue * 60 * 1000;
+                        break;
+                    case "hours":
+                        intervalMilliseconds = intervalValue * 60 * 60 * 1000;
+                        break;
+                    case "days":
+                        intervalMilliseconds = intervalValue * 24 * 60 * 60 * 1000;
+                        break;
+                }
+
                 // Perform an immediate commit when starting auto-commit
                 commitToGitHub();
-                // Set interval for every 24 hours (24 * 60 * 60 * 1000 milliseconds)
-                autoCommitInterval = setInterval(commitToGitHub, 24 * 60 * 60 * 1000);
-                document.getElementById("toggleAutoCommitButton").textContent = "Auto Commit ON (Click to Stop)";
+                autoCommitInterval = setInterval(commitToGitHub, intervalMilliseconds);
+                document.getElementById("toggleAutoCommitButton").textContent = `Auto Commit ON (Next in ${intervalValue} ${intervalType})`;
                 document.getElementById("toggleAutoCommitButton").classList.remove('bg-green-600', 'hover:bg-green-700');
                 document.getElementById("toggleAutoCommitButton").classList.add('bg-red-600', 'hover:bg-red-700');
-                showStatusMessage("✅ Auto Commit Enabled (Every 24h)", "success");
+                showStatusMessage(`✅ Auto Commit Enabled (Every ${intervalValue} ${intervalType})`, "success");
             }
         }
 
         // Event Listeners
-        document.getElementById("token").addEventListener("input", loadUserRepos); // Use 'input' for real-time updates
-        document.getElementById("username").addEventListener("input", loadUserRepos); // Listen to username changes too
+        document.getElementById("token").addEventListener("input", () => {
+            saveSettingsToStorage(); // Save token on input
+            loadUserRepos();
+        });
+        document.getElementById("username").addEventListener("input", () => {
+            saveSettingsToStorage(); // Save username on input
+            loadUserRepos();
+        });
+        document.getElementById("repo").addEventListener("change", () => {
+            saveSettingsToStorage(); // Save repo on change
+            loadRepoBranches();
+        });
+        document.getElementById("branch").addEventListener("change", saveSettingsToStorage); // Save branch on change
+        document.getElementById("filepath").addEventListener("input", saveSettingsToStorage); // Save filepath on input
+        document.getElementById("content").addEventListener("input", saveSettingsToStorage); // Save content on input
+        document.getElementById("intervalValue").addEventListener("input", saveSettingsToStorage); // Save interval value
+        document.getElementById("intervalType").addEventListener("change", saveSettingsToStorage); // Save interval type
+
 
         // Initial setup on window load
         window.onload = () => {
-            loadTokenFromStorage();
+            loadSettingsFromStorage();
             // Load repos after token and username might have been loaded from storage
             // Add a small delay to ensure inputs are populated if from storage
             setTimeout(loadUserRepos, 100);
