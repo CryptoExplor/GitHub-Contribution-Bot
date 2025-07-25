@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GitHub Auto Commit Bot</title>
+
+    <!-- Favicon & Branding -->
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb" />
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter Font -->
@@ -16,6 +22,9 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
     <div class="bg-white shadow-xl rounded-2xl p-8 max-w-xl w-full">
+        <div class="flex justify-center mb-4">
+            <img src="https://d.cess.network/n1/1075188011.png" alt="Farmlabs Logo" class="h-12 w-auto">
+        </div>
         <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">GitHub Auto Commit Bot</h2>
 
         <div class="space-y-4">
@@ -280,7 +289,7 @@
          */
         function showStatusMessage(message, type) {
             const statusMessageDiv = document.getElementById("status");
-            statusMessageDiv.textContent = message;
+            statusMessageDiv.innerHTML = message; // Use innerHTML to allow links
             statusMessageDiv.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800', 'bg-gray-50');
 
             if (type === 'success') {
@@ -469,6 +478,15 @@
             // Add a small delay to ensure inputs are populated if from storage
             setTimeout(loadUserRepos, 100);
         };
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('✅ Service Worker registered'))
+                    .catch(err => console.warn('❌ Service Worker registration failed', err));
+            });
+        }
     </script>
 </body>
 </html>
