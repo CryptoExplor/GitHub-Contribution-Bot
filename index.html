@@ -18,6 +18,10 @@
         body {
             font-family: 'Inter', sans-serif;
         }
+        /* Custom styling for multi-select to make it look better */
+        select[multiple] {
+            min-height: 100px; /* Adjust as needed */
+        }
     </style>
     <!-- Cal-Heatmap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.css" rel="stylesheet">
@@ -44,8 +48,9 @@
             </div>
 
             <div>
-                <label for="repo" class="block text-gray-700 text-sm font-medium mb-1">Select Repository:</label>
-                <select id="repo" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label for="repo" class="block text-gray-700 text-sm font-medium mb-1">Select Repositories (Ctrl/Cmd + Click to select multiple):</label>
+                <select id="repo" multiple
+                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Loading Repos...</option>
                 </select>
             </div>
@@ -53,7 +58,7 @@
             <div>
                 <label for="branch" class="block text-gray-700 text-sm font-medium mb-1">Select Branch:</label>
                 <select id="branch" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">Loading Branches...</option>
+                    <option value="">Select Repo First</option>
                 </select>
             </div>
 
@@ -207,7 +212,10 @@
             try {
                 localStorage.setItem("gh_token", document.getElementById("token").value.trim());
                 localStorage.setItem("gh_username", document.getElementById("username").value.trim());
-                localStorage.setItem("gh_repo", document.getElementById("repo").value.trim());
+                // For multi-select, store as JSON string
+                const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
+                localStorage.setItem("gh_repos", JSON.stringify(selectedRepos));
+
                 localStorage.setItem("gh_branch", document.getElementById("branch").value.trim());
                 localStorage.setItem("gh_filepath", document.getElementById("filepath").value.trim());
                 localStorage.setItem("gh_intervalValue", document.getElementById("intervalValue").value.trim());
@@ -234,7 +242,11 @@
             try {
                 document.getElementById("token").value = localStorage.getItem("gh_token") || '';
                 document.getElementById("username").value = localStorage.getItem("gh_username") || '';
-                document.getElementById("repo").value = localStorage.getItem("gh_repo") || '';
+
+                // Load selected repos as array
+                const savedRepos = JSON.parse(localStorage.getItem("gh_repos") || '[]');
+                // Will select options after repos are loaded in loadUserRepos
+
                 document.getElementById("branch").value = localStorage.getItem("gh_branch") || '';
                 document.getElementById("filepath").value = localStorage.getItem("gh_filepath") || 'README.md';
                 document.getElementById("intervalValue").value = localStorage.getItem("gh_intervalValue") || '24';
@@ -253,7 +265,7 @@
         }
 
         /**
-         * Fetches user repositories from GitHub and populates the dropdown.
+         * Fetches user repositories from GitHub and populates the multi-select dropdown.
          */
         async function loadUserRepos() {
             const token = document.getElementById("token").value.trim();
@@ -281,22 +293,29 @@
                     throw new Error(errorData.message || "Failed to fetch repositories.");
                 }
                 const repos = await res.json();
-                repoSelect.innerHTML = "<option value=''>Select Repo</option>"; // Clear loading message
+                repoSelect.innerHTML = ""; // Clear loading message
+
+                const savedSelectedRepos = JSON.parse(localStorage.getItem("gh_repos") || '[]');
+
                 repos.forEach(repo => {
                     const option = document.createElement("option");
                     option.value = repo.full_name;
                     option.innerText = repo.full_name;
+                    // Select options that were previously saved
+                    if (savedSelectedRepos.includes(repo.full_name)) {
+                        option.selected = true;
+                    }
                     repoSelect.appendChild(option);
                 });
 
-                // Set previously selected repo if it exists
-                const savedRepo = localStorage.getItem("gh_repo");
-                if (savedRepo && repos.some(r => r.full_name === savedRepo)) {
-                    repoSelect.value = savedRepo;
-                    loadRepoBranches(); // Load branches for the saved repo
-                } else {
-                    showStatusMessage("Repositories loaded successfully. Select a repository.", "success");
+                // If no repos were saved or found, select the first one by default if available
+                if (savedSelectedRepos.length === 0 && repos.length > 0) {
+                    repoSelect.options[0].selected = true;
                 }
+
+                // Trigger branch loading for the first selected repo (or default)
+                loadRepoBranches();
+                showStatusMessage("Repositories loaded successfully. Select one or more.", "success");
 
             } catch (err) {
                 console.error("Error loading repositories:", err);
@@ -307,12 +326,16 @@
         }
 
         /**
-         * Fetches branches for the selected repository and populates the dropdown.
+         * Fetches branches for the selected repository (first one if multiple are selected) and populates the dropdown.
          */
         async function loadRepoBranches() {
             const token = document.getElementById("token").value.trim();
-            const repoFullName = document.getElementById("repo").value.trim();
+            const repoSelect = document.getElementById("repo");
             const branchSelect = document.getElementById("branch");
+
+            // Get the first selected repo for branch loading, as branches are repo-specific
+            const selectedRepos = Array.from(repoSelect.selectedOptions).map(option => option.value);
+            const repoFullName = selectedRepos[0]; // Use the first selected repo for branch loading
 
             branchSelect.innerHTML = "<option value=''>Loading Branches...</option>"; // Reset and show loading
 
@@ -407,8 +430,8 @@
             document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
             document.getElementById('makeCommitButton').disabled = show;
             document.getElementById('toggleAutoCommitButton').disabled = show;
-            document.getElementById('generateRandomCommitsButton').disabled = show; // Renamed button
-            document.getElementById('applyPatternButton').disabled = show; // New button
+            document.getElementById('generateRandomCommitsButton').disabled = show;
+            document.getElementById('applyPatternButton').disabled = show;
             document.getElementById('previewHeatmapButton').disabled = show;
             document.getElementById('token').disabled = show;
             document.getElementById('username').disabled = show;
@@ -422,9 +445,9 @@
             document.getElementById('simulatedStartDate').disabled = show;
             document.getElementById('simulatedEndDate').disabled = show;
             document.getElementById('simulatedFilePath').disabled = show;
-            document.getElementById('streakPatternSelect').disabled = show; // New select
-            document.getElementById('patternStartDate').disabled = show; // New input
-            document.getElementById('patternEndDate').disabled = show; // New input
+            document.getElementById('streakPatternSelect').disabled = show;
+            document.getElementById('patternStartDate').disabled = show;
+            document.getElementById('patternEndDate').disabled = show;
         }
 
         /**
@@ -441,21 +464,28 @@
          */
         async function commitToGitHub(targetFilePath = null, dateForMessage = null) {
             const token = document.getElementById("token").value.trim();
-            const repo = document.getElementById("repo").value.trim();
+            const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
             const branch = document.getElementById("branch").value.trim();
             const path = targetFilePath || document.getElementById("filepath").value.trim();
             let contentInput = document.getElementById("content").value;
 
-            if (!token || !repo || !branch || !path) {
-                showStatusMessage("Please fill in all required fields: Token, Repository, Branch, and File Path.", "error");
+            if (selectedRepos.length === 0) {
+                showStatusMessage("Please select at least one repository.", "error");
+                return false;
+            }
+            if (!token || !branch || !path) {
+                showStatusMessage("Please fill in all required fields: Token, Branch, and File Path.", "error");
                 return false; // Indicate failure
             }
+
+            // Randomly pick one repository from the selected list
+            const repo = selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
 
             saveSettingsToStorage(); // Save settings on successful input
 
             if (!dateForMessage) { // Only show loading for single manual commit
                 toggleLoading(true);
-                showStatusMessage("Attempting to commit...", "info");
+                showStatusMessage(`Attempting to commit to ${repo}...`, "info");
             }
 
             const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
@@ -513,7 +543,7 @@
 
                 if (putRes.ok) {
                     if (!dateForMessage) { // Only show detailed success for single manual commit
-                        showStatusMessage(`✅ Commit successful! Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
+                        showStatusMessage(`✅ Commit successful to ${repo}! Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
                     }
                     return true; // Indicate success
                 } else {
@@ -522,7 +552,7 @@
             } catch (error) {
                 console.error("Commit failed:", error);
                 if (!dateForMessage) { // Only show detailed error for single manual commit
-                    showStatusMessage(`❌ Commit failed: ${error.message}`, "error");
+                    showStatusMessage(`❌ Commit failed to ${repo}: ${error.message}`, "error");
                 }
                 return false; // Indicate failure
             } finally {
