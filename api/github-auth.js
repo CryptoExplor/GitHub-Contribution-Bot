@@ -7,6 +7,15 @@ import axios from 'axios'; // Import axios for making HTTP requests
 
 // The default export function serves as the entry point for the Vercel Serverless Function.
 export default async function handler(req, res) {
+  // --- START: Temporary Debugging Ping ---
+  // This is a temporary response to check if the function is even being invoked successfully.
+  // If you deploy this and can access your Vercel function URL (e.g., https://your-app.vercel.app/api/github-auth)
+  // and see "Function is alive!", then the issue is within the OAuth logic below.
+  // If you still get a 500 error, the problem is with Vercel's environment setup or basic file parsing.
+  // return res.status(200).send("Function is alive!");
+  // --- END: Temporary Debugging Ping ---
+
+
   // Extract the 'code' from the query parameters. This code is provided by GitHub
   // after the user authorizes your application.
   const { code } = req.query;
