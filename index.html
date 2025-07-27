@@ -14,6 +14,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for hamburger icon (needed for guide.html content) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -71,6 +73,85 @@
         .dark .text-gray-700 {
             color: #cbd5e0;
         }
+
+        /* Styles for dynamically loaded guide content */
+        #user-guide-content-wrapper {
+            /* Ensure the content itself can scroll if it overflows */
+            overflow-y: auto;
+            max-height: calc(100vh - 200px); /* Adjust based on header/footer size */
+            padding: 1rem; /* Add some padding */
+        }
+        /* Adjust for mobile sidebar in dynamically loaded content */
+        #user-guide-content-wrapper .sidebar-container { /* This will be the aside element from guide.html */
+            position: fixed;
+            top: 0;
+            left: -100%; /* Hidden by default */
+            height: 100%;
+            transition: left 0.3s ease-in-out;
+            z-index: 50; /* Ensure it's above other content */
+            width: 64; /* Match guide.html aside width */
+            background-color: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        #user-guide-content-wrapper .sidebar-container.active {
+            left: 0; /* Show when active */
+        }
+        #user-guide-content-wrapper .overlay-guide { /* This will be the overlay from guide.html */
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 40;
+        }
+        #user-guide-content-wrapper .overlay-guide.active {
+            display: block;
+        }
+        #user-guide-content-wrapper .menu-button-guide { /* This will be the menu-button from guide.html */
+            display: block; /* Show hamburger button on small screens */
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            background-color: #2563eb;
+            color: white;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            z-index: 50;
+        }
+        @media (min-width: 769px) {
+            #user-guide-content-wrapper .menu-button-guide {
+                display: none; /* Hide hamburger button on larger screens */
+            }
+            #user-guide-content-wrapper .sidebar-container {
+                position: sticky; /* Keep sidebar sticky on larger screens */
+                left: 0;
+                top: 0;
+                height: auto; /* Allow height to adjust */
+            }
+            #user-guide-content-wrapper .main-content-area { /* This will be the main-content-wrapper from guide.html */
+                margin-left: 16rem; /* Adjust based on sidebar width */
+            }
+        }
+        .dark #user-guide-content-wrapper .bg-white {
+            background-color: #2d3748;
+        }
+        .dark #user-guide-content-wrapper .text-gray-800 {
+            color: #e2e8f0;
+        }
+        .dark #user-guide-content-wrapper .text-gray-600 {
+            color: #cbd5e0;
+        }
+        .dark #user-guide-content-wrapper .border-gray-200 {
+            border-color: #4a5568;
+        }
+        .dark #user-guide-content-wrapper .bg-gray-100 {
+            background-color: #2d3748;
+        }
     </style>
     <!-- Cal-Heatmap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.css" rel="stylesheet">
@@ -98,8 +179,7 @@
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="historic-commits">Historic Commits</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="heatmaps">Heatmaps</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="about">About</button>
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="stats">Stats</button> <!-- NEW: Stats Tab Button -->
-            <!-- NEW: User Guide Tab Button -->
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="stats">Stats</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="user-guide">User Guide</button>
         </div>
 
@@ -334,13 +414,12 @@
             </p>
         </div>
 
-        <!-- NEW: User Guide Tab Content -->
-        <div id="user-guide" class="tab-content space-y-4">
-            <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">User Guide</h3>
-            <p class="text-gray-700 dark:text-gray-300">
-                For a detailed guide on how to use this bot and create a GitHub Personal Access Token, please visit our dedicated guide page:
-                <a href="guide.html" target="_blank" class="text-blue-600 hover:underline font-semibold">Open User Guide (guide.html)</a>
-            </p>
+        <!-- User Guide Tab Content - Now dynamically loaded -->
+        <div id="user-guide" class="tab-content">
+            <div id="user-guide-content-wrapper" class="h-full w-full">
+                <!-- Guide content will be loaded here dynamically -->
+                <p class="text-center text-gray-500 dark:text-gray-400">Loading User Guide...</p>
+            </div>
         </div>
 
         <div class="mt-6">
@@ -1679,7 +1758,7 @@
 
         // Tab switching logic
         document.querySelectorAll('.tab-button').forEach(button => {
-            button.addEventListener('click', () => {
+            button.addEventListener('click', async () => { // Made async to await fetch for guide
                 const tabId = button.dataset.tab;
 
                 // Deactivate all tab buttons and content
@@ -1688,7 +1767,8 @@
 
                 // Activate the clicked tab button and content
                 button.classList.add('active');
-                document.getElementById(tabId).classList.add('active');
+                const activeTabContent = document.getElementById(tabId);
+                activeTabContent.classList.add('active');
 
                 // If switching to heatmaps tab, automatically load real heatmap if username is present
                 if (tabId === 'heatmaps' && document.getElementById('username').value.trim() !== '') {
@@ -1697,6 +1777,81 @@
                 // If switching to stats tab, update display
                 if (tabId === 'stats') {
                     updateStatsDisplay();
+                }
+                // NEW: If switching to user-guide tab, load content dynamically
+                if (tabId === 'user-guide') {
+                    const userGuideContentWrapper = document.getElementById('user-guide-content-wrapper');
+                    userGuideContentWrapper.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400">Loading User Guide...</p>'; // Show loading message
+
+                    try {
+                        const response = await fetch('guide.html');
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const html = await response.text();
+                        // Parse the HTML string to extract the relevant content
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        // Assuming the main content is within a div with class 'main-content-wrapper'
+                        const mainContent = doc.querySelector('.main-content-wrapper');
+
+                        if (mainContent) {
+                            userGuideContentWrapper.innerHTML = mainContent.innerHTML;
+
+                            // Re-apply dark mode to the loaded content
+                            if (document.documentElement.classList.contains("dark")) {
+                                userGuideContentWrapper.querySelectorAll('*').forEach(el => {
+                                    if (el.classList.contains('bg-white')) el.classList.add('dark:bg-gray-700');
+                                    if (el.classList.contains('text-gray-800')) el.classList.add('dark:text-white');
+                                    if (el.classList.contains('text-gray-700')) el.classList.add('dark:text-gray-300');
+                                    if (el.classList.contains('text-gray-600')) el.classList.add('dark:text-gray-400');
+                                    if (el.classList.contains('bg-gray-100')) el.classList.add('dark:bg-gray-700');
+                                    if (el.classList.contains('border-gray-200')) el.classList.add('dark:border-gray-600');
+                                    if (el.classList.contains('bg-gray-50')) el.classList.add('dark:bg-gray-700');
+                                    // Add more specific dark mode class toggles if needed for nested elements
+                                });
+                            }
+
+                            // Re-attach event listeners for the dynamically loaded sidebar and buttons
+                            userGuideContentWrapper.querySelectorAll('.menu-button-guide').forEach(btn => {
+                                btn.onclick = () => {
+                                    const sidebar = userGuideContentWrapper.querySelector('.sidebar-container');
+                                    const overlay = userGuideContentWrapper.querySelector('.overlay-guide');
+                                    if (sidebar && overlay) {
+                                        sidebar.classList.toggle('active');
+                                        overlay.classList.toggle('active');
+                                    }
+                                };
+                            });
+                            userGuideContentWrapper.querySelectorAll('.sidebar-container a').forEach(link => {
+                                link.addEventListener('click', () => {
+                                    if (window.innerWidth <= 768) {
+                                        const sidebar = userGuideContentWrapper.querySelector('.sidebar-container');
+                                        const overlay = userGuideContentWrapper.querySelector('.overlay-guide');
+                                        if (sidebar && overlay) {
+                                            sidebar.classList.remove('active');
+                                            overlay.classList.remove('active');
+                                        }
+                                    }
+                                });
+                            });
+                            // Re-attach download PDF function
+                            userGuideContentWrapper.querySelectorAll('button[onclick="downloadPDF()"]').forEach(btn => {
+                                btn.onclick = downloadPDF;
+                            });
+
+                            // Smooth scroll polyfill for iOS Safari
+                            // This polyfill is usually for window.scroll, but for internal anchor links,
+                            // the browser handles it. If issues persist, a more robust polyfill might be needed.
+                            // For now, ensure the CSS scroll-smooth property is sufficient.
+
+                        } else {
+                            userGuideContentWrapper.innerHTML = '<p class="text-center text-red-500 dark:text-red-400">Failed to load user guide content.</p>';
+                        }
+                    } catch (error) {
+                        console.error('Error loading user guide:', error);
+                        userGuideContentWrapper.innerHTML = '<p class="text-center text-red-500 dark:text-red-400">Error loading user guide. Please try again later.</p>';
+                    }
                 }
             });
         });
