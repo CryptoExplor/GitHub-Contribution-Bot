@@ -506,7 +506,8 @@
 
         // --- GitHub OAuth Configuration (IMPORTANT: Replace with your actual Client ID) ---
         const GITHUB_CLIENT_ID = 'Ov23lidwfr2w8brs3SjU'; // Replace with your GitHub OAuth App Client ID
-        const GITHUB_REDIRECT_URI = window.location.origin + '/?oauth_callback=true';
+        // The frontend now redirects to the backend serverless function for OAuth callback
+        const GITHUB_REDIRECT_URI = window.location.origin + '/api/github-auth';
         // --- End GitHub OAuth Configuration ---
 
         document.getElementById('safeMode').addEventListener('change', (e) => {
@@ -1839,10 +1840,52 @@
         window.addEventListener('DOMContentLoaded', async () => {
             const params = new URLSearchParams(window.location.search);
             const code = params.get('code');
-            const isOAuthCallback = params.get('oauth_callback');
+            // The `oauth_callback` parameter is no longer needed on the frontend,
+            // as the backend handles the initial redirect from GitHub.
+            // const isOAuthCallback = params.get('oauth_callback');
 
-            if (isOAuthCallback && code) {
-                showStatusMessage("Exchanging GitHub code for access token...", "info");
+            // The backend serverless function will redirect to the root path with token/user info
+            // if it successfully gets them. So, we check for 'token' and 'user' in the URL.
+            const accessTokenFromBackend = params.get('access_token');
+            const userLoginFromBackend = params.get('user_login');
+            const userAvatarFromBackend = params.get('user_avatar');
+
+            if (accessTokenFromBackend && userLoginFromBackend) {
+                showStatusMessage("Processing GitHub login...", "info");
+                toggleLoading(true);
+
+                try {
+                    localStorage.setItem('gh_token_oauth', accessTokenFromBackend); // Store OAuth token
+                    localStorage.setItem('gh_user_oauth', JSON.stringify({
+                        login: userLoginFromBackend,
+                        avatar_url: userAvatarFromBackend
+                    })); // Store user info
+
+                    // Update UI with logged-in user info
+                    document.getElementById("token").value = accessTokenFromBackend;
+                    document.getElementById("token").disabled = true; // Disable manual input
+                    document.getElementById("username").value = userLoginFromBackend; // Set username from OAuth
+                    document.getElementById("githubLogin").classList.add('hidden'); // Hide login button
+                    document.getElementById("loggedInUser").classList.remove('hidden'); // Show user info
+                    document.getElementById("userAvatar").src = userAvatarFromBackend;
+                    document.getElementById("userName").textContent = userLoginFromBackend;
+
+                    showStatusMessage(`✅ Welcome, ${userLoginFromBackend}! GitHub login successful.`, "success");
+                    loadUserRepos(); // Automatically load repos for the authenticated user
+
+                    // Clean the URL by redirecting to the base path
+                    window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+                } catch (error) {
+                    console.error('Error during OAuth callback processing:', error);
+                    showStatusMessage(`❌ Error during GitHub OAuth processing: ${error.message}. Please try again.`, "error");
+                    document.getElementById("token").disabled = false; // Re-enable manual input
+                    document.getElementById("githubLogin").classList.remove('hidden');
+                    document.getElementById("loggedInUser").classList.add('hidden');
+                } finally {
+                    toggleLoading(false);
+                }
+            } else if (code) { // This block handles the case where the backend might not redirect correctly
+                showStatusMessage("Exchanging GitHub code for access token (fallback)...", "info");
                 toggleLoading(true);
 
                 try {
