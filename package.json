@@ -1,0 +1,22 @@
+{
+  "name": "GitHub-Contribution-Bot",
+  "version": "1.0.0",
+  "description": "A browser-based GitHub Auto Commit Bot with Vercel Serverless Function for OAuth.",
+  "main": "api/github-auth.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "keywords": [
+    "github",
+    "bot",
+    "automation",
+    "oauth",
+    "vercel",
+    "serverless"
+  ],
+  "author": "CryptoExplor & FarmLabs",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
