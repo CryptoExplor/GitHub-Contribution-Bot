@@ -185,6 +185,22 @@
 
         <!-- Tab Content -->
         <div id="main-controls" class="tab-content active space-y-4">
+            <!-- GitHub Login Section -->
+            <div id="githubLoginSection" class="border-b border-gray-200 pb-4 mb-4 dark:border-gray-700 text-center">
+                <h3 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">GitHub Authentication</h3>
+                <div id="loggedInUser" class="hidden flex items-center justify-center space-x-2 mb-4">
+                    <img id="userAvatar" src="" alt="User Avatar" class="w-10 h-10 rounded-full border border-gray-300 dark:border-gray-600">
+                    <span id="userName" class="text-gray-700 font-medium dark:text-gray-300"></span>
+                    <button id="githubLogout" class="bg-red-500 text-white px-3 py-1 rounded-md text-sm font-semibold hover:bg-red-600 transition duration-300 ease-in-out">Logout</button>
+                </div>
+                <button id="githubLogin" class="w-full bg-blue-600 text-white py-3 rounded-md font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
+                    🔐 Login with GitHub
+                </button>
+                <p class="text-xs text-gray-500 mt-2 dark:text-gray-400">
+                    Login with GitHub OAuth for automatic token management and repo loading.
+                </p>
+            </div>
+
             <div>
                 <label for="token" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">GitHub Personal Access Token (PAT):</label>
                 <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
@@ -192,6 +208,9 @@
                 <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
                     Required scopes: <code>repo</code> <code>read:user</code>
                     <span class="ml-1 text-blue-600 underline cursor-pointer" title="repo = push/pull access; read:user = heatmap access.">[?]</span>
+                </p>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
+                    (Optional: PAT is only needed if not using GitHub OAuth login above)
                 </p>
             </div>
 
@@ -485,6 +504,11 @@
         let commitTimestamps = []; // Array of timestamps for average interval calculation
         let repoCommitCounts = {}; // Object to store commit counts per repository
 
+        // --- GitHub OAuth Configuration (IMPORTANT: Replace with your actual Client ID) ---
+        const GITHUB_CLIENT_ID = 'Ov23lidwfr2w8brs3SjU'; // Replace with your GitHub OAuth App Client ID
+        const GITHUB_REDIRECT_URI = window.location.origin + '/?oauth_callback=true';
+        // --- End GitHub OAuth Configuration ---
+
         document.getElementById('safeMode').addEventListener('change', (e) => {
             safeModeEnabled = e.target.checked;
             if (window.debugMode) console.log('Safe Mode:', safeModeEnabled);
@@ -590,7 +614,10 @@
          */
         function saveSettingsToStorage() {
             try {
-                localStorage.setItem("gh_token", document.getElementById("token").value.trim());
+                // Only save token if it's manually entered or if OAuth hasn't provided one
+                if (!localStorage.getItem('gh_token_oauth')) { // Only save manual PAT if OAuth token isn't present
+                    localStorage.setItem("gh_token", document.getElementById("token").value.trim());
+                }
                 localStorage.setItem("gh_username", document.getElementById("username").value.trim());
                 // For multi-select, store as JSON string
                 const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
@@ -634,8 +661,26 @@
          */
         function loadSettingsFromStorage() {
             try {
-                document.getElementById("token").value = localStorage.getItem("gh_token") || '';
-                document.getElementById("username").value = localStorage.getItem("gh_username") || '';
+                // Prioritize OAuth token if available
+                const oauthToken = localStorage.getItem("gh_token_oauth");
+                const manualToken = localStorage.getItem("gh_token");
+
+                if (oauthToken) {
+                    document.getElementById("token").value = oauthToken;
+                    document.getElementById("token").disabled = true; // Disable manual input if OAuth is active
+                    document.getElementById("githubLogin").classList.add('hidden'); // Hide login button
+                    document.getElementById("loggedInUser").classList.remove('hidden'); // Show user info
+                    const userInfo = JSON.parse(localStorage.getItem("gh_user_oauth") || '{}');
+                    document.getElementById("userAvatar").src = userInfo.avatar_url || 'https://placehold.co/40x40/cccccc/000000?text=NA';
+                    document.getElementById("userName").textContent = userInfo.login || 'GitHub User';
+                    document.getElementById("username").value = userInfo.login || ''; // Set username from OAuth
+                } else {
+                    document.getElementById("token").value = manualToken || '';
+                    document.getElementById("token").disabled = false;
+                    document.getElementById("githubLogin").classList.remove('hidden');
+                    document.getElementById("loggedInUser").classList.add('hidden');
+                    document.getElementById("username").value = localStorage.getItem("gh_username") || ''; // Load manual username
+                }
 
                 // Load selected repos as array
                 // Will select options after repos are loaded in loadUserRepos
@@ -758,13 +803,13 @@
             };
         }
 
-
         /**
          * Fetches user repositories from GitHub and populates the multi-select dropdown.
+         * This function now uses the OAuth token if available, falling back to PAT.
          */
         async function loadUserRepos() {
-            const token = document.getElementById("token").value.trim();
-            const username = document.getElementById("username").value.trim();
+            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
+            const username = document.getElementById("username").value.trim(); // Username might be from OAuth or manual
             const repoSelect = document.getElementById("repo");
             const branchSelect = document.getElementById("branch");
 
@@ -782,7 +827,8 @@
             };
 
             try {
-                const res = await fetch(`https://api.github.com/users/${username}/repos?type=owner`, { headers });
+                // Use the /user/repos endpoint for authenticated user's repositories
+                const res = await fetch(`https://api.github.com/user/repos?type=owner&per_page=100`, { headers });
                 if (!res.ok) {
                     const errorData = await res.json();
                     throw new Error(errorData.message || "Failed to fetch repositories.");
@@ -824,7 +870,7 @@
          * Fetches branches for the selected repository (first one if multiple are selected) and populates the dropdown.
          */
         async function loadRepoBranches() {
-            const token = document.getElementById("token").value.trim();
+            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
             const repoSelect = document.getElementById("repo");
             const branchSelect = document.getElementById("branch");
 
@@ -930,7 +976,7 @@
                 document.getElementById('generateSimulatedCommitsButton'),
                 document.getElementById('previewHeatmapButton'),
                 document.getElementById('loadRealHeatmapButton'),
-                document.getElementById('token'),
+                // document.getElementById('token'), // Keep token input enabled for manual entry fallback
                 document.getElementById('geminiApiKey'), // Added Gemini API Key input to controls
                 document.getElementById('username'),
                 document.getElementById('repo'),
@@ -949,7 +995,9 @@
                 document.getElementById('darkModeToggle'), // Disable dark mode toggle during loading
                 document.getElementById('smartRotation'), // Disable smart rotation toggle during loading
                 document.getElementById('resetStatsButton'), // Disable reset stats button during loading
-                document.getElementById('commitPreviewToggle') // NEW: Disable commit preview toggle during loading
+                document.getElementById('commitPreviewToggle'), // NEW: Disable commit preview toggle during loading
+                document.getElementById('githubLogin'), // Disable login button
+                document.getElementById('githubLogout') // Disable logout button
             ];
 
             allControls.forEach(control => {
@@ -957,6 +1005,12 @@
                     control.disabled = show;
                 }
             });
+             // Explicitly handle token input based on OAuth state
+            if (localStorage.getItem('gh_token_oauth')) {
+                document.getElementById("token").disabled = true;
+            } else {
+                document.getElementById("token").disabled = show; // Disable if loading, enable otherwise
+            }
         }
 
         /**
@@ -965,7 +1019,7 @@
         async function makeSingleCommit() {
             // This function will now prepare the commit and then show the preview modal
             // The actual commit will happen after confirmation from the modal
-            const token = document.getElementById("token").value.trim();
+            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
             const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
             const branch = document.getElementById("branch").value.trim();
             const path = document.getElementById("filepath").value.trim();
@@ -1079,7 +1133,7 @@
          * @param {boolean} [isAutoCommit=false] True if this commit is part of an automated process (e.g., safe mode, auto-commit interval).
          */
         async function commitToGitHub(targetFilePath = null, dateForMessage = null, repoOverride = null, commitMessageOverride = null, isAutoCommit = false) {
-            const token = document.getElementById("token").value.trim();
+            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
             let selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
             const branch = document.getElementById("branch").value.trim();
             const path = targetFilePath || document.getElementById("filepath").value.trim(); // Use main filepath
@@ -1527,7 +1581,7 @@
          * Fetches real GitHub contribution events and renders them as a heatmap.
          */
         async function loadRealContributionHeatmap() {
-            const token = document.getElementById("token").value.trim();
+            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
             const username = document.getElementById("username").value.trim();
             const realHeatmapContainer = document.getElementById("realHeatmapContainer");
             realHeatmapContainer.innerHTML = ''; // Clear previous heatmap
@@ -1754,6 +1808,84 @@
             saveSettingsToStorage(); // Save dark mode preference
         });
         document.getElementById("resetStatsButton").addEventListener("click", resetStats);
+
+        // --- GitHub OAuth Frontend Logic ---
+        document.getElementById('githubLogin').addEventListener('click', () => {
+            // Redirect to GitHub's authorization page
+            window.location.href =
+                `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo%20read:user&redirect_uri=${GITHUB_REDIRECT_URI}`;
+        });
+
+        document.getElementById('githubLogout').addEventListener('click', () => {
+            // Clear OAuth related data from localStorage
+            localStorage.removeItem('gh_token_oauth');
+            localStorage.removeItem('gh_user_oauth');
+            localStorage.removeItem('gh_username'); // Clear username as it might have come from OAuth
+            document.getElementById("token").value = ''; // Clear PAT input
+            document.getElementById("username").value = ''; // Clear username input
+
+            // Re-enable manual PAT input and hide user info
+            document.getElementById("token").disabled = false;
+            document.getElementById("githubLogin").classList.remove('hidden');
+            document.getElementById("loggedInUser").classList.add('hidden');
+            document.getElementById("userAvatar").src = '';
+            document.getElementById("userName").textContent = '';
+
+            showStatusMessage("Logged out from GitHub.", "info");
+            loadUserRepos(); // Reload repos (will show "Enter Token and Username")
+        });
+
+        // On load: handle redirect back from GitHub after OAuth
+        window.addEventListener('DOMContentLoaded', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get('code');
+            const isOAuthCallback = params.get('oauth_callback');
+
+            if (isOAuthCallback && code) {
+                showStatusMessage("Exchanging GitHub code for access token...", "info");
+                toggleLoading(true);
+
+                try {
+                    // Call your Vercel Serverless Function to exchange the code
+                    const res = await fetch(`/api/github-auth?code=${code}`);
+                    const data = await res.json();
+
+                    if (data.access_token) {
+                        localStorage.setItem('gh_token_oauth', data.access_token); // Store OAuth token
+                        localStorage.setItem('gh_user_oauth', JSON.stringify(data.user)); // Store user info
+
+                        // Update UI with logged-in user info
+                        document.getElementById("token").value = data.access_token;
+                        document.getElementById("token").disabled = true; // Disable manual input
+                        document.getElementById("username").value = data.user.login; // Set username from OAuth
+                        document.getElementById("githubLogin").classList.add('hidden'); // Hide login button
+                        document.getElementById("loggedInUser").classList.remove('hidden'); // Show user info
+                        document.getElementById("userAvatar").src = data.user.avatar_url;
+                        document.getElementById("userName").textContent = data.user.login;
+
+                        showStatusMessage(`✅ Welcome, ${data.user.login}! GitHub login successful.`, "success");
+                        loadUserRepos(); // Automatically load repos for the authenticated user
+
+                        // Clean the URL by redirecting to the base path
+                        window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+                    } else {
+                        showStatusMessage(`❌ GitHub OAuth failed: ${data.error || 'Unknown error.'}`, "error");
+                        document.getElementById("token").disabled = false; // Re-enable manual input
+                        document.getElementById("githubLogin").classList.remove('hidden');
+                        document.getElementById("loggedInUser").classList.add('hidden');
+                    }
+                } catch (error) {
+                    console.error('Error during OAuth callback:', error);
+                    showStatusMessage(`❌ Error during GitHub OAuth: ${error.message}. Please try again.`, "error");
+                    document.getElementById("token").disabled = false; // Re-enable manual input
+                    document.getElementById("githubLogin").classList.remove('hidden');
+                    document.getElementById("loggedInUser").classList.add('hidden');
+                } finally {
+                    toggleLoading(false);
+                }
+            }
+        });
+        // --- End GitHub OAuth Frontend Logic ---
 
 
         // Tab switching logic
