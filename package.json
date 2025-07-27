@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A browser-based GitHub Auto Commit Bot with Vercel Serverless Function for OAuth.",
   "main": "api/github-auth.js",
+  "type": "module",
   "scripts": {
     "start": "vercel dev"
   },
