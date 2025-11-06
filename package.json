@@ -1,11 +1,12 @@
 {
-  "name": "GitHub-Contribution-Bot",
-  "version": "1.0.0",
-  "description": "A browser-based GitHub Auto Commit Bot with Vercel Serverless Function for OAuth.",
-  "main": "api/github-auth.js",
+  "name": "github-contribution-bot",
+  "version": "2.0.0",
+  "description": "A secure, browser-based GitHub Auto Commit Bot with OAuth authentication and spam prevention",
   "type": "module",
   "scripts": {
-    "start": "vercel dev"
+    "dev": "vercel dev",
+    "build": "vercel build",
+    "deploy": "vercel --prod"
   },
   "keywords": [
     "github",
@@ -13,11 +14,28 @@
     "automation",
     "oauth",
     "vercel",
-    "serverless"
+    "serverless",
+    "contribution-graph",
+    "commits",
+    "pwa"
   ],
   "author": "CryptoExplor & FarmLabs",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CryptoExplor/GitHub-Contribution-Bot"
+  },
+  "homepage": "https://github.com/CryptoExplor/GitHub-Contribution-Bot#readme",
+  "bugs": {
+    "url": "https://github.com/CryptoExplor/GitHub-Contribution-Bot/issues"
+  },
   "dependencies": {
-    "axios": "^1.6.0"
+    "axios": "^1.7.0"
+  },
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
