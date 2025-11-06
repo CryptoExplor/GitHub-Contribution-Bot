@@ -1,0 +1,1594 @@
+// ===================================
+// SECURE GITHUB AUTO COMMIT BOT
+// Version 2.0 - Spam-Proof Edition
+// ===================================
+
+// ============= SECURITY CLASSES =============
+
+// Token Encryption Manager
+class TokenManager {
+    static getKey() {
+        return 'ghbot-secure-' + navigator.userAgent.slice(0, 20);
+    }
+
+    static encrypt(token) {
+        if (!token) return '';
+        const key = this.getKey();
+        return btoa(token.split('').map((char, i) => 
+            String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(i % key.length))
+        ).join(''));
+    }
+
+    static decrypt(encrypted) {
+        if (!encrypted) return '';
+        try {
+            const decoded = atob(encrypted);
+            const key = this.getKey();
+            return decoded.split('').map((char, i) => 
+                String.fromCharCode(char.charCodeAt(0) ^ key.charCodeAt(i % key.length))
+            ).join('');
+        } catch (e) {
+            console.error('Token decryption failed:', e);
+            return '';
+        }
+    }
+
+    static saveToken(token, key = 'gh_token_enc') {
+        if (!token) return;
+        const encrypted = this.encrypt(token);
+        localStorage.setItem(key, encrypted);
+    }
+
+    static getToken(key = 'gh_token_enc') {
+        const encrypted = localStorage.getItem(key);
+        return encrypted ? this.decrypt(encrypted) : '';
+    }
+
+    static removeToken(key = 'gh_token_enc') {
+        localStorage.removeItem(key);
+    }
+}
+
+// Rate Limiter Class
+class RateLimiter {
+    constructor(maxRequests = 60, windowMs = 3600000, name = 'default') {
+        this.maxRequests = maxRequests;
+        this.windowMs = windowMs;
+        this.name = name;
+        this.requests = this.loadFromStorage();
+    }
+
+    loadFromStorage() {
+        const stored = localStorage.getItem(`ratelimit_${this.name}`);
+        return stored ? JSON.parse(stored) : [];
+    }
+
+    saveToStorage() {
+        localStorage.setItem(`ratelimit_${this.name}`, JSON.stringify(this.requests));
+    }
+
+    canMakeRequest() {
+        const now = Date.now();
+        this.requests = this.requests.filter(time => now - time < this.windowMs);
+        
+        if (this.requests.length >= this.maxRequests) {
+            const oldestRequest = this.requests[0];
+            const waitTime = this.windowMs - (now - oldestRequest);
+            return { allowed: false, waitMs: waitTime };
+        }
+        
+        this.requests.push(now);
+        this.saveToStorage();
+        return { allowed: true };
+    }
+
+    getRemainingRequests() {
+        const now = Date.now();
+        this.requests = this.requests.filter(time => now - time < this.windowMs);
+        return this.maxRequests - this.requests.length;
+    }
+
+    reset() {
+        this.requests = [];
+        this.saveToStorage();
+    }
+}
+
+// Activity Monitor Class
+class ActivityMonitor {
+    constructor() {
+        this.commitTimes = [];
+        this.maxHistorySize = 100;
+        this.loadFromStorage();
+    }
+
+    recordCommit(timestamp = Date.now()) {
+        this.commitTimes.push(timestamp);
+        if (this.commitTimes.length > this.maxHistorySize) {
+            this.commitTimes.shift();
+        }
+        this.saveToStorage();
+    }
+
+    detectSuspiciousPattern() {
+        if (this.commitTimes.length < 10) return { suspicious: false };
+
+        const intervals = [];
+        for (let i = 1; i < this.commitTimes.length; i++) {
+            intervals.push(this.commitTimes[i] - this.commitTimes[i - 1]);
+        }
+
+        const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        const variance = intervals.reduce((sum, interval) => 
+            sum + Math.pow(interval - avgInterval, 2), 0
+        ) / intervals.length;
+        const stdDev = Math.sqrt(variance);
+
+        // Check for too-regular intervals
+        if (stdDev < avgInterval * 0.1 && this.commitTimes.length > 20) {
+            return {
+                suspicious: true,
+                reason: 'Intervals too regular (robot-like pattern)',
+                recommendation: 'Enable Safe Mode for more natural timing'
+            };
+        }
+
+        // Check for burst activity
+        const recentCommits = this.commitTimes.filter(t => 
+            Date.now() - t < 3600000
+        ).length;
+
+        if (recentCommits > 15) {
+            return {
+                suspicious: true,
+                reason: 'Too many commits in short time (15+ in 1 hour)',
+                recommendation: 'Slow down to avoid spam detection'
+            };
+        }
+
+        return { suspicious: false };
+    }
+
+    saveToStorage() {
+        localStorage.setItem('activity_monitor', JSON.stringify(this.commitTimes));
+    }
+
+    loadFromStorage() {
+        const data = localStorage.getItem('activity_monitor');
+        if (data) this.commitTimes = JSON.parse(data);
+    }
+
+    reset() {
+        this.commitTimes = [];
+        this.saveToStorage();
+    }
+}
+
+// ============= GLOBAL VARIABLES =============
+
+// OAuth Configuration (use environment variable in production)
+const GITHUB_CLIENT_ID = window.GITHUB_CLIENT_ID || 'Ov23lidwfr2w8brs3SjU';
+const GITHUB_REDIRECT_URI = window.location.origin + '/api/github-auth';
+
+// Rate Limiters
+const commitRateLimiter = new RateLimiter(60, 3600000, 'commits'); // 60/hour
+const apiRateLimiter = new RateLimiter(100, 3600000, 'api'); // 100/hour
+const dailyCommitLimiter = new RateLimiter(20, 86400000, 'daily'); // 20/day
+
+// Activity Monitor
+const activityMonitor = new ActivityMonitor();
+
+// Bot State
+let autoCommitInterval = null;
+let safeModeLoopActive = false;
+let safeModeEnabled = false;
+let smartRotationEnabled = false;
+let commitPreviewEnabled = false;
+let currentRepoIndex = 0;
+let previewCommitDetails = {};
+let countdownInterval = null;
+let simulatedCommitDates = [];
+
+// Stats
+let totalCommits = 0;
+let safeModeCommitCount = 0;
+let firstCommitDate = null;
+let commitTimestamps = [];
+let repoCommitCounts = {};
+
+// Debug mode
+window.debugMode = false;
+
+// ============= SAFE MODE CONFIGURATION =============
+
+const safeModeConfig = {
+    minDelay: 30 * 60 * 1000, // 30 minutes
+    maxDelay: 180 * 60 * 1000, // 3 hours
+    skipProbability: 0.15, // 15% chance to skip
+    maxCommitsPerDay: 20,
+    quietHours: { start: 23, end: 7 }, // 11 PM - 7 AM
+    workdayBias: 0.7 // 70% commits on weekdays
+};
+
+// ============= UTILITY FUNCTIONS =============
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+function jitter(base, maxJitter = 60000) {
+    return base + Math.floor(Math.random() * maxJitter);
+}
+
+function toBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+}
+
+function fromBase64(base64) {
+    return decodeURIComponent(escape(atob(base64)));
+}
+
+function getRandomFallbackMessage() {
+    const messages = [
+        "feat: add new feature",
+        "fix: resolve bug",
+        "docs: update documentation",
+        "chore: routine maintenance",
+        "style: code formatting",
+        "refactor: improve code structure",
+        "test: add new tests",
+        "build: update dependencies",
+        "perf: optimize performance",
+        "ci: update CI config"
+    ];
+    return messages[Math.floor(Math.random() * messages.length)];
+}
+
+// ============= COMMIT MESSAGE GENERATION =============
+
+function generateSafeCommitMessage() {
+    const templates = [
+        { type: "chore", actions: ["update", "refresh", "sync", "clean up"], subjects: ["dependencies", "config", "docs", "metadata"] },
+        { type: "docs", actions: ["update", "improve", "revise", "clarify"], subjects: ["README", "comments", "documentation", "examples"] },
+        { type: "style", actions: ["format", "lint", "organize", "refactor"], subjects: ["code", "files", "structure", "spacing"] },
+        { type: "fix", actions: ["resolve", "correct", "patch", "address"], subjects: ["typo", "bug", "issue", "error"] },
+        { type: "feat", actions: ["add", "implement", "introduce", "create"], subjects: ["feature", "utility", "helper", "function"] }
+    ];
+
+    const template = templates[Math.floor(Math.random() * templates.length)];
+    const action = template.actions[Math.floor(Math.random() * template.actions.length)];
+    const subject = template.subjects[Math.floor(Math.random() * template.subjects.length)];
+    
+    // Occasional emoji (20% chance)
+    const emojis = ["✨", "🔧", "📝", "🐛", "🚀"];
+    const emoji = Math.random() < 0.2 ? emojis[Math.floor(Math.random() * emojis.length)] + " " : "";
+    
+    // Occasional scope (30% chance)
+    const scopes = ["api", "core", "utils", "config", "tests", "build"];
+    const scope = Math.random() < 0.3 ? `(${scopes[Math.floor(Math.random() * scopes.length)]})` : "";
+    
+    return `${emoji}${template.type}${scope}: ${action} ${subject}`;
+}
+
+// ============= UI FUNCTIONS =============
+
+function showStatusMessage(message, type) {
+    const statusDiv = document.getElementById("status");
+    statusDiv.innerHTML = message;
+    statusDiv.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800', 'bg-yellow-100', 'text-yellow-800', 'bg-gray-50', 'dark:bg-gray-700', 'dark:text-gray-300');
+
+    if (type === 'success') {
+        statusDiv.classList.add('bg-green-100', 'text-green-800');
+    } else if (type === 'error') {
+        statusDiv.classList.add('bg-red-100', 'text-red-800');
+    } else if (type === 'warning') {
+        statusDiv.classList.add('bg-yellow-100', 'text-yellow-800');
+    } else if (type === 'info') {
+        statusDiv.classList.add('bg-blue-100', 'text-blue-800');
+    } else {
+        statusDiv.classList.add('bg-gray-50', 'text-gray-700', 'dark:bg-gray-700', 'dark:text-gray-300');
+    }
+}
+
+function toggleLoading(show) {
+    document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
+    const controls = [
+        'makeCommitButton', 'toggleAutoCommitButton', 'generateSimulatedCommitsButton',
+        'previewHeatmapButton', 'loadRealHeatmapButton', 'geminiApiKey', 'username',
+        'repo', 'branch', 'filepath', 'content', 'intervalValue', 'intervalType',
+        'numSimulatedCommits', 'simulatedStartDate', 'simulatedEndDate', 
+        'streakPatternSelect', 'commitContext', 'generateMessageButton', 'safeMode',
+        'darkModeToggle', 'smartRotation', 'resetStatsButton', 'commitPreviewToggle',
+        'githubLogin', 'githubLogout'
+    ];
+
+    controls.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = show;
+    });
+
+    // Handle token input based on OAuth
+    const tokenInput = document.getElementById('token');
+    if (TokenManager.getToken('gh_token_oauth')) {
+        tokenInput.disabled = true;
+    } else {
+        tokenInput.disabled = show;
+    }
+}
+
+function updateRateLimitDisplay() {
+    document.getElementById('rateLimitCommits').textContent = commitRateLimiter.getRemainingRequests();
+    document.getElementById('rateLimitAPI').textContent = apiRateLimiter.getRemainingRequests();
+}
+
+function addActivityLog(message, isError = false) {
+    const log = document.getElementById('safeModeLog');
+    if (log.children.length === 1 && log.children[0].textContent === 'No activity yet.') {
+        log.innerHTML = '';
+    }
+    
+    const listItem = document.createElement('li');
+    listItem.innerHTML = `${new Date().toLocaleTimeString()}: ${message}`;
+    if (isError) listItem.classList.add('text-red-500');
+    log.prepend(listItem);
+    
+    while (log.children.length > 10) {
+        log.removeChild(log.lastChild);
+    }
+}
+
+// ============= STORAGE FUNCTIONS =============
+
+function saveSettingsToStorage() {
+    try {
+        const manualToken = document.getElementById("token").value.trim();
+        if (manualToken && !TokenManager.getToken('gh_token_oauth')) {
+            TokenManager.saveToken(manualToken, 'gh_token_enc');
+        }
+
+        const geminiKey = document.getElementById("geminiApiKey")?.value.trim();
+        if (geminiKey) {
+            TokenManager.saveToken(geminiKey, 'gemini_api_key_enc');
+        }
+
+        localStorage.setItem("gh_username", document.getElementById("username").value.trim());
+        
+        const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
+        localStorage.setItem("gh_repos", JSON.stringify(selectedRepos));
+
+        localStorage.setItem("gh_branch", document.getElementById("branch").value.trim());
+        localStorage.setItem("gh_filepath", document.getElementById("filepath").value.trim());
+        localStorage.setItem("gh_intervalValue", document.getElementById("intervalValue").value.trim());
+        localStorage.setItem("gh_intervalType", document.getElementById("intervalType").value.trim());
+        localStorage.setItem("gh_numSimulatedCommits", document.getElementById("numSimulatedCommits").value.trim());
+        localStorage.setItem("gh_simulatedStartDate", document.getElementById("simulatedStartDate").value.trim());
+        localStorage.setItem("gh_simulatedEndDate", document.getElementById("simulatedEndDate").value.trim());
+        localStorage.setItem("gh_streakPatternSelect", document.getElementById("streakPatternSelect").value.trim());
+        localStorage.setItem("gh_commitContext", document.getElementById("commitContext").value.trim());
+        localStorage.setItem("darkMode", document.documentElement.classList.contains("dark"));
+        localStorage.setItem("smartRotation", document.getElementById("smartRotation").checked);
+        localStorage.setItem("commitPreview", document.getElementById("commitPreviewToggle").checked);
+
+        // Save stats
+        localStorage.setItem("stats_totalCommits", totalCommits);
+        localStorage.setItem("stats_safeModeCommitCount", safeModeCommitCount);
+        localStorage.setItem("stats_firstCommitDate", firstCommitDate);
+        localStorage.setItem("stats_commitTimestamps", JSON.stringify(commitTimestamps));
+        localStorage.setItem("stats_repoCommitCounts", JSON.stringify(repoCommitCounts));
+    } catch (e) {
+        console.error("Failed to save settings:", e);
+    }
+}
+
+function loadSettingsFromStorage() {
+    try {
+        const oauthToken = TokenManager.getToken('gh_token_oauth');
+        const manualToken = TokenManager.getToken('gh_token_enc');
+
+        if (oauthToken) {
+            document.getElementById("token").value = oauthToken;
+            document.getElementById("token").disabled = true;
+            document.getElementById("githubLogin").classList.add('hidden');
+            document.getElementById("loggedInUser").classList.remove('hidden');
+            
+            const userInfo = JSON.parse(localStorage.getItem("gh_user_oauth") || '{}');
+            document.getElementById("userAvatar").src = userInfo.avatar_url || '';
+            document.getElementById("userName").textContent = userInfo.login || '';
+            document.getElementById("username").value = userInfo.login || '';
+        } else if (manualToken) {
+            document.getElementById("token").value = manualToken;
+            document.getElementById("username").value = localStorage.getItem("gh_username") || '';
+        }
+
+        const geminiKey = TokenManager.getToken('gemini_api_key_enc');
+        if (geminiKey && document.getElementById("geminiApiKey")) {
+            document.getElementById("geminiApiKey").value = geminiKey;
+        }
+
+        document.getElementById("branch").value = localStorage.getItem("gh_branch") || '';
+        document.getElementById("filepath").value = localStorage.getItem("gh_filepath") || 'README.md';
+        document.getElementById("intervalValue").value = localStorage.getItem("gh_intervalValue") || '24';
+        document.getElementById("intervalType").value = localStorage.getItem("gh_intervalType") || 'hours';
+        document.getElementById("numSimulatedCommits").value = localStorage.getItem("gh_numSimulatedCommits") || '10';
+        document.getElementById("simulatedStartDate").value = localStorage.getItem("gh_simulatedStartDate") || '';
+        document.getElementById("simulatedEndDate").value = localStorage.getItem("gh_simulatedEndDate") || '';
+        document.getElementById("streakPatternSelect").value = localStorage.getItem("gh_streakPatternSelect") || 'random';
+        document.getElementById("commitContext").value = localStorage.getItem("gh_commitContext") || '';
+
+        const isDarkMode = localStorage.getItem("darkMode") === "true";
+        document.documentElement.classList.toggle("dark", isDarkMode);
+        document.getElementById("darkModeToggle").checked = isDarkMode;
+
+        smartRotationEnabled = localStorage.getItem("smartRotation") === "true";
+        document.getElementById("smartRotation").checked = smartRotationEnabled;
+
+        commitPreviewEnabled = localStorage.getItem("commitPreview") === "true";
+        document.getElementById("commitPreviewToggle").checked = commitPreviewEnabled;
+
+        // Load stats
+        totalCommits = parseInt(localStorage.getItem("stats_totalCommits") || '0');
+        safeModeCommitCount = parseInt(localStorage.getItem("stats_safeModeCommitCount") || '0');
+        firstCommitDate = parseInt(localStorage.getItem("stats_firstCommitDate") || '0') || null;
+        commitTimestamps = JSON.parse(localStorage.getItem("stats_commitTimestamps") || '[]');
+        repoCommitCounts = JSON.parse(localStorage.getItem("stats_repoCommitCounts") || '{}');
+
+    } catch (e) {
+        console.error("Failed to load settings:", e);
+    }
+}
+
+// ============= STATS FUNCTIONS =============
+
+function updateStatsDisplay() {
+    document.getElementById("statsTotalCommits").textContent = totalCommits;
+
+    const safeModePercentage = totalCommits > 0 ? ((safeModeCommitCount / totalCommits) * 100).toFixed(1) : 0;
+    document.getElementById("statsSafeModeCommits").textContent = `${safeModeCommitCount} (${safeModePercentage}%)`;
+
+    document.getElementById("statsFirstCommitDate").textContent = firstCommitDate ? new Date(firstCommitDate).toLocaleDateString() : "N/A";
+
+    let averageInterval = "N/A";
+    if (commitTimestamps.length > 1) {
+        const sortedTimestamps = [...commitTimestamps].sort((a, b) => a - b);
+        let totalDiff = 0;
+        for (let i = 1; i < sortedTimestamps.length; i++) {
+            totalDiff += (sortedTimestamps[i] - sortedTimestamps[i-1]);
+        }
+        const avgDiffMs = totalDiff / (sortedTimestamps.length - 1);
+        
+        if (avgDiffMs < 60 * 1000) {
+            averageInterval = `${(avgDiffMs / 1000).toFixed(0)} seconds`;
+        } else if (avgDiffMs < 60 * 60 * 1000) {
+            averageInterval = `${(avgDiffMs / (60 * 1000)).toFixed(1)} minutes`;
+        } else if (avgDiffMs < 24 * 60 * 60 * 1000) {
+            averageInterval = `${(avgDiffMs / (60 * 60 * 1000)).toFixed(1)} hours`;
+        } else {
+            averageInterval = `${(avgDiffMs / (24 * 60 * 60 * 1000)).toFixed(1)} days`;
+        }
+    }
+    document.getElementById("statsAverageInterval").textContent = averageInterval;
+
+    let topUsedRepo = "N/A";
+    let maxCommits = 0;
+    for (const repo in repoCommitCounts) {
+        if (repoCommitCounts[repo] > maxCommits) {
+            maxCommits = repoCommitCounts[repo];
+            topUsedRepo = repo;
+        }
+    }
+    document.getElementById("statsTopUsedRepo").textContent = topUsedRepo;
+
+    // Check for suspicious activity
+    const analysis = activityMonitor.detectSuspiciousPattern();
+    const warningDiv = document.getElementById('suspiciousActivityWarning');
+    if (analysis.suspicious) {
+        warningDiv.classList.remove('hidden');
+        document.getElementById('suspiciousActivityReason').textContent = analysis.reason;
+        document.getElementById('suspiciousActivityRecommendation').textContent = `💡 ${analysis.recommendation}`;
+    } else {
+        warningDiv.classList.add('hidden');
+    }
+}
+
+function resetStats() {
+    const confirmDiv = document.createElement('div');
+    confirmDiv.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    confirmDiv.innerHTML = `
+        <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm dark:bg-gray-800 dark:text-white">
+            <h3 class="text-lg font-bold mb-4">Confirm Reset</h3>
+            <p class="text-gray-700 dark:text-gray-300 mb-6">Reset all statistics? This cannot be undone.</p>
+            <div class="flex justify-end space-x-2">
+                <button id="cancelReset" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200">Cancel</button>
+                <button id="confirmReset" class="bg-red-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-700">Reset</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(confirmDiv);
+
+    document.getElementById('cancelReset').onclick = () => document.body.removeChild(confirmDiv);
+    document.getElementById('confirmReset').onclick = () => {
+        totalCommits = 0;
+        safeModeCommitCount = 0;
+        firstCommitDate = null;
+        commitTimestamps = [];
+        repoCommitCounts = {};
+        activityMonitor.reset();
+        commitRateLimiter.reset();
+        dailyCommitLimiter.reset();
+        saveSettingsToStorage();
+        updateStatsDisplay();
+        updateRateLimitDisplay();
+        showStatusMessage("✅ Statistics reset successfully", "success");
+        document.body.removeChild(confirmDiv);
+    };
+}
+
+// ============= GITHUB API FUNCTIONS =============
+
+async function loadUserRepos() {
+    const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
+    const username = document.getElementById("username").value.trim();
+    const repoSelect = document.getElementById("repo");
+    const branchSelect = document.getElementById("branch");
+
+    repoSelect.innerHTML = "<option value=''>Loading Repos...</option>";
+    branchSelect.innerHTML = "<option value=''>Select Repo First</option>";
+
+    if (!token || !username) {
+        repoSelect.innerHTML = "<option value=''>Enter Token and Username</option>";
+        return;
+    }
+
+    // Check API rate limit
+    const apiCheck = apiRateLimiter.canMakeRequest();
+    if (!apiCheck.allowed) {
+        showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
+        return;
+    }
+
+    const headers = {
+        "Authorization": `token ${token}`,
+        "Accept": "application/vnd.github.v3+json"
+    };
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const res = await fetch(`https://api.github.com/user/repos?type=owner&per_page=100`, { 
+            headers,
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || "Failed to fetch repositories");
+        }
+        
+        const repos = await res.json();
+        repoSelect.innerHTML = "";
+
+        const savedSelectedRepos = JSON.parse(localStorage.getItem("gh_repos") || '[]');
+
+        repos.forEach(repo => {
+            const option = document.createElement("option");
+            option.value = repo.full_name;
+            option.innerText = repo.full_name;
+            if (savedSelectedRepos.includes(repo.full_name)) {
+                option.selected = true;
+            }
+            repoSelect.appendChild(option);
+        });
+
+        if (repos.length > 0) {
+            loadRepoBranches();
+            showStatusMessage("✅ Repositories loaded successfully", "success");
+        }
+    } catch (err) {
+        console.error("Error loading repositories:", err);
+        repoSelect.innerHTML = "<option value=''>Error loading repos</option>";
+        showStatusMessage(`❌ Error: ${err.message}`, "error");
+    }
+}
+
+async function loadRepoBranches() {
+    const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
+    const repoSelect = document.getElementById("repo");
+    const branchSelect = document.getElementById("branch");
+
+    const selectedRepos = Array.from(repoSelect.selectedOptions).map(option => option.value);
+    const repoFullName = selectedRepos[0];
+
+    branchSelect.innerHTML = "<option value=''>Loading Branches...</option>";
+
+    if (!token || !repoFullName) {
+        branchSelect.innerHTML = "<option value=''>Select Repo First</option>";
+        return;
+    }
+
+    // Check API rate limit
+    const apiCheck = apiRateLimiter.canMakeRequest();
+    if (!apiCheck.allowed) {
+        showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
+        return;
+    }
+
+    const headers = {
+        "Authorization": `token ${token}`,
+        "Accept": "application/vnd.github.v3+json"
+    };
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const res = await fetch(`https://api.github.com/repos/${repoFullName}/branches`, {
+            headers,
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || "Failed to fetch branches");
+        }
+        
+        const branches = await res.json();
+        branchSelect.innerHTML = "<option value=''>Select Branch</option>";
+        
+        branches.forEach(branch => {
+            const option = document.createElement("option");
+            option.value = branch.name;
+            option.innerText = branch.name;
+            branchSelect.appendChild(option);
+        });
+
+        const savedBranch = localStorage.getItem("gh_branch");
+        if (savedBranch && branches.some(b => b.name === savedBranch)) {
+            branchSelect.value = savedBranch;
+        } else if (branches.length > 0) {
+            branchSelect.value = branches[0].name;
+        }
+    } catch (err) {
+        console.error("Error loading branches:", err);
+        branchSelect.innerHTML = "<option value=''>Error loading branches</option>";
+    }
+}
+
+// ============= GEMINI API =============
+
+async function generateSmartCommitMessage() {
+    const commitContext = document.getElementById("commitContext").value.trim();
+    const contentTextArea = document.getElementById("content");
+
+    if (!commitContext) {
+        showStatusMessage("Please provide context for the commit message", "error");
+        return;
+    }
+
+    // Check API rate limit
+    const apiCheck = apiRateLimiter.canMakeRequest();
+    if (!apiCheck.allowed) {
+        showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
+        contentTextArea.value = getRandomFallbackMessage();
+        return;
+    }
+
+    toggleLoading(true);
+    showStatusMessage("✨ Generating smart commit message...", "info");
+
+    try {
+        const apiKey = TokenManager.getToken('gemini_api_key_enc');
+        
+        if (!apiKey) {
+            throw new Error("Gemini API Key not found");
+        }
+
+        // Sanitize input
+        const sanitizedContext = commitContext.slice(0, 200).replace(/[<>]/g, '');
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        role: "user",
+                        parts: [{
+                            text: `Generate a GitHub commit message (max 72 chars, use conventional commits format like feat:, fix:, docs:, chore:, style:, refactor:, test:, build:, perf:, ci:) for: ${sanitizedContext}`
+                        }]
+                    }],
+                    safetySettings: [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" }
+                    ]
+                }),
+                signal: controller.signal
+            }
+        );
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+        const result = await response.json();
+        const message = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+        if (!message) throw new Error('No message generated');
+
+        const finalMessage = message.length > 72 ? message.slice(0, 72) + '...' : message;
+        contentTextArea.value = finalMessage;
+        showStatusMessage("✨ Smart commit message generated!", "success");
+
+    } catch (error) {
+        console.error("Gemini API error:", error);
+        showStatusMessage(`❌ Error: ${error.message}. Using fallback.`, "error");
+        contentTextArea.value = getRandomFallbackMessage();
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+// ============= COMMIT FUNCTIONS =============
+
+async function makeSingleCommit() {
+    const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
+    const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
+    const branch = document.getElementById("branch").value.trim();
+    const path = document.getElementById("filepath").value.trim();
+    let contentInput = document.getElementById("content").value;
+
+    if (selectedRepos.length === 0) {
+        showStatusMessage("Please select at least one repository", "error");
+        return;
+    }
+    if (!token || !branch || !path) {
+        showStatusMessage("Please fill in all required fields", "error");
+        return;
+    }
+
+    // Check rate limits
+    const commitCheck = commitRateLimiter.canMakeRequest();
+    if (!commitCheck.allowed) {
+        showStatusMessage(`⏱️ Rate limit: ${commitRateLimiter.getRemainingRequests()}/60 commits left this hour. Wait ${Math.ceil(commitCheck.waitMs / 60000)} min`, "error");
+        return;
+    }
+
+    const dailyCheck = dailyCommitLimiter.canMakeRequest();
+    if (!dailyCheck.allowed) {
+        showStatusMessage(`⏱️ Daily limit reached (20/day). Wait ${Math.ceil(dailyCheck.waitMs / 60000)} min`, "error");
+        return;
+    }
+
+    let repo;
+    if (smartRotationEnabled && selectedRepos.length > 0) {
+        repo = selectedRepos[currentRepoIndex];
+        currentRepoIndex = (currentRepoIndex + 1) % selectedRepos.length;
+    } else {
+        repo = selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
+    }
+
+    let commitMessage;
+    if (contentInput === '') {
+        commitMessage = generateSafeCommitMessage();
+        contentInput = `# ${commitMessage}\n\nUpdated on ${new Date().toLocaleString()}`;
+    } else {
+        commitMessage = generateSafeCommitMessage();
+    }
+
+    previewCommitDetails = {
+        repo: repo,
+        branch: branch,
+        path: path,
+        message: commitMessage,
+        content: contentInput,
+        isAutoCommit: false
+    };
+
+    if (commitPreviewEnabled) {
+        showCommitPreviewModal();
+    } else {
+        await commitToGitHub(path, null, repo, commitMessage, false);
+    }
+}
+
+async function commitToGitHub(targetFilePath = null, dateForMessage = null, repoOverride = null, commitMessageOverride = null, isAutoCommit = false) {
+    const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
+    let selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
+    const branch = document.getElementById("branch").value.trim();
+    const path = targetFilePath || document.getElementById("filepath").value.trim();
+    let contentInput = document.getElementById("content").value;
+
+    if (selectedRepos.length === 0 && !repoOverride) {
+        showStatusMessage("Please select at least one repository", "error");
+        return false;
+    }
+    if (!token || !branch || !path) {
+        showStatusMessage("Please fill in all required fields", "error");
+        return false;
+    }
+
+    // Determine repo
+    let repo;
+    if (repoOverride) {
+        repo = repoOverride;
+    } else if (smartRotationEnabled && selectedRepos.length > 0) {
+        repo = selectedRepos[currentRepoIndex];
+        currentRepoIndex = (currentRepoIndex + 1) % selectedRepos.length;
+    } else {
+        repo = selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
+    }
+
+    saveSettingsToStorage();
+
+    if (!dateForMessage && !isAutoCommit && !commitPreviewEnabled) {
+        toggleLoading(true);
+        showStatusMessage(`Committing to ${repo}...`, "info");
+    }
+
+    const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+    const headers = {
+        "Authorization": `token ${token}`,
+        "Accept": "application/vnd.github.v3+json"
+    };
+
+    let sha = null;
+    let finalContent;
+    let commitMessage;
+
+    if (commitMessageOverride) {
+        commitMessage = commitMessageOverride;
+        finalContent = `# Auto Commit\n\n${commitMessageOverride}\n\nUpdated on ${new Date().toLocaleString()}`;
+    } else if (contentInput === '' || dateForMessage) {
+        commitMessage = generateSafeCommitMessage();
+        finalContent = `# ${commitMessage}\n\nUpdated on ${dateForMessage || new Date().toLocaleString()}`;
+    } else {
+        finalContent = contentInput;
+        commitMessage = generateSafeCommitMessage();
+    }
+
+    // Check API rate limit
+    const apiCheck = apiRateLimiter.canMakeRequest();
+    if (!apiCheck.allowed) {
+        showStatusMessage(`⏱️ API rate limit reached. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
+        return false;
+    }
+
+    const encodedContent = toBase64(finalContent);
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const getRes = await fetch(`${apiUrl}?ref=${branch}`, { 
+            headers,
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (getRes.status === 200) {
+            const data = await getRes.json();
+            sha = data.sha;
+        } else if (getRes.status !== 404) {
+            const errorData = await getRes.json();
+            throw new Error(`Failed to fetch file: ${errorData.message || getRes.statusText}`);
+        }
+    } catch (error) {
+        if (error.name !== 'AbortError') {
+            console.error("Error fetching file:", error);
+        }
+    }
+
+    const body = {
+        message: commitMessage,
+        content: encodedContent,
+        sha: sha,
+        branch: branch
+    };
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const putRes = await fetch(apiUrl, {
+            method: "PUT",
+            headers,
+            body: JSON.stringify(body),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        const result = await putRes.json();
+
+        if (putRes.ok) {
+            const commitHash = result.commit.sha.substring(0, 7);
+            const commitRepo = repo.split('/')[1];
+            const cliOutput = `[${branch} ${commitHash}] ${commitMessage}\n 1 file changed, 1 insertion(+)`;
+
+            // Update stats
+            totalCommits++;
+            if (isAutoCommit) {
+                safeModeCommitCount++;
+            }
+            if (firstCommitDate === null) {
+                firstCommitDate = Date.now();
+            }
+            commitTimestamps.push(Date.now());
+            repoCommitCounts[repo] = (repoCommitCounts[repo] || 0) + 1;
+            
+            activityMonitor.recordCommit();
+            saveSettingsToStorage();
+            updateStatsDisplay();
+            updateRateLimitDisplay();
+
+            if (!dateForMessage && !isAutoCommit) {
+                showStatusMessage(`✅ Commit successful to ${repo}!\n<pre class="bg-gray-100 p-2 rounded mt-1 text-xs dark:bg-gray-700 dark:text-gray-300">${cliOutput}</pre>View: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
+            } else if (isAutoCommit) {
+                if (window.debugMode) console.log(`✅ Auto Commit: ${commitMessage}`);
+                addActivityLog(`✅ Commit to <b>${commitRepo}</b>: <code>${commitMessage}</code>`);
+            }
+            return true;
+        } else {
+            throw new Error(result.message || "Unknown error during commit");
+        }
+    } catch (error) {
+        console.error("Commit failed:", error);
+        if (!dateForMessage && !isAutoCommit) {
+            showStatusMessage(`❌ Commit failed: ${error.message}`, "error");
+        } else if (isAutoCommit) {
+            addActivityLog(`❌ Commit to <b>${repo.split('/')[1]}</b> failed: ${error.message}`, true);
+        }
+        return false;
+    } finally {
+        if (!dateForMessage && !isAutoCommit) {
+            toggleLoading(false);
+        }
+    }
+}
+
+// ============= COMMIT PREVIEW MODAL =============
+
+function showCommitPreviewModal() {
+    const modal = document.getElementById('commitPreviewModal');
+    document.getElementById('previewRepo').textContent = previewCommitDetails.repo;
+    document.getElementById('previewBranch').textContent = previewCommitDetails.branch;
+    document.getElementById('previewFilePath').textContent = previewCommitDetails.path;
+    document.getElementById('previewCommitMessage').value = previewCommitDetails.message;
+    document.getElementById('previewContentSnippet').value = previewCommitDetails.content.substring(0, 500) + (previewCommitDetails.content.length > 500 ? '...' : '');
+
+    document.getElementById('previewCountdown').textContent = '';
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+
+    modal.classList.remove('hidden');
+    toggleLoading(true);
+}
+
+function showCommitPreviewModalWithCountdown(repo, branch, path, message, content) {
+    const modal = document.getElementById('commitPreviewModal');
+    document.getElementById('previewRepo').textContent = repo;
+    document.getElementById('previewBranch').textContent = branch;
+    document.getElementById('previewFilePath').textContent = path;
+    document.getElementById('previewCommitMessage').value = message;
+    document.getElementById('previewContentSnippet').value = content.substring(0, 500) + (content.length > 500 ? '...' : '');
+
+    const countdownElement = document.getElementById('previewCountdown');
+    let timeLeft = 10;
+
+    modal.classList.remove('hidden');
+    toggleLoading(true);
+
+    countdownElement.textContent = `Auto-committing in ${timeLeft}s...`;
+
+    countdownInterval = setInterval(() => {
+        timeLeft--;
+        countdownElement.textContent = `Auto-committing in ${timeLeft}s...`;
+        if (timeLeft <= 0) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+            modal.classList.add('hidden');
+            toggleLoading(false);
+            commitToGitHub(path, null, repo, message, true);
+        }
+    }, 1000);
+}
+
+async function confirmCommitPreview() {
+    document.getElementById('commitPreviewModal').classList.add('hidden');
+    toggleLoading(false);
+
+    previewCommitDetails.message = document.getElementById('previewCommitMessage').value;
+
+    await commitToGitHub(
+        previewCommitDetails.path,
+        null,
+        previewCommitDetails.repo,
+        previewCommitDetails.message,
+        previewCommitDetails.isAutoCommit
+    );
+}
+
+function cancelCommitPreview() {
+    document.getElementById('commitPreviewModal').classList.add('hidden');
+    toggleLoading(false);
+    showStatusMessage("Commit cancelled", "info");
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+    }
+}
+
+// ============= AUTO COMMIT & SAFE MODE =============
+
+async function toggleAutoCommit() {
+    const toggleButton = document.getElementById("toggleAutoCommitButton");
+    const intervalValue = parseInt(document.getElementById("intervalValue").value);
+    const intervalType = document.getElementById("intervalType").value;
+    const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
+
+    if (autoCommitInterval !== null || safeModeLoopActive) {
+        if (autoCommitInterval !== null) {
+            clearInterval(autoCommitInterval);
+            autoCommitInterval = null;
+        }
+        if (safeModeLoopActive) {
+            safeModeLoopActive = false;
+            await delay(100);
+        }
+
+        toggleButton.textContent = "Toggle Auto Commit";
+        toggleButton.classList.remove('bg-red-600', 'hover:bg-red-700');
+        toggleButton.classList.add('bg-green-600', 'hover:bg-green-700');
+        showStatusMessage("❌ Auto Commit Disabled", "error");
+    } else {
+        if (selectedRepos.length === 0) {
+            showStatusMessage("Please select at least one repository", "error");
+            return;
+        }
+
+        if (safeModeEnabled) {
+            safeModeLoopActive = true;
+            toggleButton.textContent = `Safe Mode Auto Commit ON`;
+            toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+            toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
+            showStatusMessage(`✅ Safe Mode Enabled: Human-like delays, quiet hours, daily limits`, "success");
+            safeAutoCommitLoop(selectedRepos);
+        } else {
+            if (isNaN(intervalValue) || intervalValue <= 0) {
+                showStatusMessage("Please enter a valid positive interval", "error");
+                return;
+            }
+
+            let intervalMilliseconds = 0;
+            switch (intervalType) {
+                case "minutes": intervalMilliseconds = intervalValue * 60 * 1000; break;
+                case "hours": intervalMilliseconds = intervalValue * 60 * 60 * 1000; break;
+                case "days": intervalMilliseconds = intervalValue * 24 * 60 * 60 * 1000; break;
+            }
+
+            // Add random variation to interval (±20%)
+            const randomVariation = 0.2;
+            const minInterval = intervalMilliseconds * (1 - randomVariation);
+            const maxInterval = intervalMilliseconds * (1 + randomVariation);
+
+            const performCommit = async () => {
+                const randomizedInterval = minInterval + Math.random() * (maxInterval - minInterval);
+                await commitToGitHub(null, null, null, null, true);
+                
+                // Schedule next with random timing
+                if (autoCommitInterval !== null) {
+                    clearInterval(autoCommitInterval);
+                    autoCommitInterval = setTimeout(performCommit, randomizedInterval);
+                }
+            };
+
+            await performCommit(); // Initial commit
+            toggleButton.textContent = `Auto Commit ON (Every ${intervalValue} ${intervalType} ±20%)`;
+            toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+            toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
+            showStatusMessage(`✅ Auto Commit Enabled with randomized timing`, "success");
+        }
+    }
+}
+
+async function safeAutoCommitLoop(repos) {
+    const dailyCommits = new Map();
+    
+    while (safeModeLoopActive) {
+        const now = new Date();
+        const hour = now.getHours();
+        const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
+        const today = now.toDateString();
+
+        // Quiet hours check
+        if (hour >= safeModeConfig.quietHours.start || hour < safeModeConfig.quietHours.end) {
+            const waitUntilMorning = ((safeModeConfig.quietHours.end - hour + 24) % 24) * 60 * 60 * 1000;
+            addActivityLog(`😴 Quiet hours (${safeModeConfig.quietHours.start}:00-${safeModeConfig.quietHours.end}:00). Sleeping ${Math.round(waitUntilMorning / 3600000)}h`);
+            await delay(waitUntilMorning);
+            continue;
+        }
+
+        // Daily limit check
+        const todayCount = dailyCommits.get(today) || 0;
+        if (todayCount >= safeModeConfig.maxCommitsPerDay) {
+            const waitUntilMidnight = (24 - hour) * 60 * 60 * 1000;
+            addActivityLog(`📊 Daily limit reached (${todayCount}/${safeModeConfig.maxCommitsPerDay}). Waiting ${Math.round(waitUntilMidnight / 3600000)}h`);
+            await delay(waitUntilMidnight);
+            dailyCommits.delete(today);
+            continue;
+        }
+
+        // Random skip logic
+        const skipChance = isWeekday ? safeModeConfig.skipProbability : safeModeConfig.skipProbability * 2;
+        if (Math.random() < skipChance) {
+            const skipDelay = jitter(safeModeConfig.minDelay, safeModeConfig.maxDelay - safeModeConfig.minDelay);
+            addActivityLog(`🎲 Randomly skipping (${Math.round(skipDelay / 60000)}min wait)`);
+            await delay(skipDelay);
+            continue;
+        }
+
+        // Weekday bias
+        if (!isWeekday && Math.random() > (1 - safeModeConfig.workdayBias)) {
+            const weekendDelay = jitter(safeModeConfig.maxDelay, 60 * 60 * 1000);
+            addActivityLog(`📅 Weekend - reduced activity (${Math.round(weekendDelay / 60000)}min wait)`);
+            await delay(weekendDelay);
+            continue;
+        }
+
+        // Calculate human-like delay
+        const baseDelay = jitter(safeModeConfig.minDelay, safeModeConfig.maxDelay - safeModeConfig.minDelay);
+        const isWorkHours = hour >= 9 && hour <= 17;
+        const delayMultiplier = isWorkHours ? 0.7 : 1.3;
+        const finalDelay = baseDelay * delayMultiplier;
+
+        addActivityLog(`⏳ Waiting ${Math.round(finalDelay / 60000)}min before next commit...`);
+        await delay(finalDelay);
+
+        if (!safeModeLoopActive) break;
+
+        // Select repo
+        const selectedRepo = smartRotationEnabled ? 
+            repos[currentRepoIndex] : 
+            repos[Math.floor(Math.random() * repos.length)];
+
+        if (smartRotationEnabled) {
+            currentRepoIndex = (currentRepoIndex + 1) % repos.length;
+        }
+
+        const message = generateSafeCommitMessage();
+        const success = await commitToGitHub(null, null, selectedRepo, message, true);
+
+        if (success) {
+            dailyCommits.set(today, (dailyCommits.get(today) || 0) + 1);
+        }
+    }
+    
+    addActivityLog("🛑 Safe Mode stopped");
+}
+
+// ============= SIMULATED COMMITS =============
+
+function generatePatternDates(patternType, startDate, endDate, numCommits) {
+    const dates = [];
+    let currentDate = new Date(startDate);
+    currentDate.setHours(12, 0, 0, 0);
+    const timeDiff = endDate.getTime() - startDate.getTime();
+
+    if (patternType === "random") {
+        for (let i = 0; i < numCommits; i++) {
+            const randomTime = startDate.getTime() + Math.random() * timeDiff;
+            dates.push(new Date(randomTime));
+        }
+    } else if (patternType === "random-burst") {
+        const actualNumBursts = Math.min(numCommits, Math.floor(Math.random() * 6) + 5);
+        for (let i = 0; i < actualNumBursts; i++) {
+            const randomTime = startDate.getTime() + Math.random() * timeDiff;
+            dates.push(new Date(randomTime));
+        }
+    } else {
+        while (currentDate <= endDate) {
+            const dayOfWeek = currentDate.getDay();
+
+            switch (patternType) {
+                case "30-day-streak":
+                case "year-grid":
+                    dates.push(new Date(currentDate));
+                    break;
+                case "checkerboard":
+                    const dayDiff = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                    if (dayDiff % 2 === 0) {
+                        dates.push(new Date(currentDate));
+                    }
+                    break;
+                case "weekdays-only":
+                    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                        dates.push(new Date(currentDate));
+                    }
+                    break;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+    }
+    return dates;
+}
+
+async function generateSimulatedCommits() {
+    const numCommits = parseInt(document.getElementById("numSimulatedCommits").value);
+    const simulatedStartDateStr = document.getElementById("simulatedStartDate").value;
+    const simulatedEndDateStr = document.getElementById("simulatedEndDate").value;
+    const patternType = document.getElementById("streakPatternSelect").value;
+    const mainFilePath = document.getElementById("filepath").value.trim();
+
+    if (!simulatedStartDateStr || !simulatedEndDateStr) {
+        showStatusMessage("Please select both start and end dates", "error");
+        return;
+    }
+    if (!mainFilePath) {
+        showStatusMessage("Please enter a file path", "error");
+        return;
+    }
+    if ((patternType === "random" || patternType === "random-burst") && (isNaN(numCommits) || numCommits <= 0)) {
+        showStatusMessage("Please enter a valid number of commits", "error");
+        return;
+    }
+
+    const startDate = new Date(simulatedStartDateStr);
+    const endDate = new Date(simulatedEndDateStr);
+
+    if (startDate > endDate) {
+        showStatusMessage("Start date cannot be after end date", "error");
+        return;
+    }
+
+    toggleLoading(true);
+    showStatusMessage(`Generating simulated commits with '${patternType}' pattern...`, "info");
+
+    const datesToCommit = generatePatternDates(patternType, startDate, endDate, numCommits);
+    simulatedCommitDates = [];
+    let successfulCommits = 0;
+
+    for (const date of datesToCommit) {
+        const formattedDate = date.toLocaleString();
+        showStatusMessage(`Simulating commit ${successfulCommits + 1}/${datesToCommit.length} for ${formattedDate}...`, "info");
+
+        const success = await commitToGitHub(mainFilePath, formattedDate);
+        if (success) {
+            successfulCommits++;
+            simulatedCommitDates.push(date);
+        }
+
+        await delay(500);
+    }
+
+    showStatusMessage(`✅ Simulation complete: ${successfulCommits}/${datesToCommit.length} commits successful`, successfulCommits === datesToCommit.length ? "success" : "warning");
+    toggleLoading(false);
+    renderHeatmapFromSimulatedData();
+}
+
+// ============= HEATMAP FUNCTIONS =============
+
+function renderHeatmapFromSimulatedData() {
+    const container = document.getElementById("heatmapContainer");
+    container.innerHTML = '';
+
+    if (simulatedCommitDates.length === 0) {
+        showStatusMessage("No simulated data. Generate commits first.", "info");
+        return;
+    }
+
+    const data = {};
+    simulatedCommitDates.forEach(date => {
+        const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000;
+        data[timestamp] = (data[timestamp] || 0) + 1;
+    });
+
+    const firstDate = new Date(Math.min(...simulatedCommitDates.map(d => d.getTime())));
+    const lastDate = new Date(Math.max(...simulatedCommitDates.map(d => d.getTime())));
+
+    const cal = new CalHeatmap();
+    cal.init({
+        itemSelector: "#heatmapContainer",
+        domain: "month",
+        subDomain: "day",
+        range: 12,
+        start: new Date(lastDate.getFullYear(), lastDate.getMonth() - 11, 1),
+        data: data,
+        legend: [1, 2, 3, 4],
+        tooltip: true,
+        displayLegend: true,
+        verticalOrientation: false,
+        label: { position: "top" },
+        subDomainTitleFormat: {
+            empty: "{date}",
+            filled: "{count} commits on {date}"
+        },
+        cellSize: 10,
+        cellPadding: 2,
+        colLimit: 13,
+        animationDuration: 500
+    });
+    showStatusMessage("Simulated heatmap updated", "info");
+}
+
+async function loadRealContributionHeatmap() {
+    const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
+    const username = document.getElementById("username").value.trim();
+    const container = document.getElementById("realHeatmapContainer");
+    container.innerHTML = '';
+
+    if (!token || !username) {
+        showStatusMessage("Please enter token and username", "error");
+        return;
+    }
+
+    toggleLoading(true);
+    showStatusMessage(`Fetching GitHub events for ${username}...`, "info");
+
+    const headers = {
+        "Authorization": `token ${token}`,
+        "Accept": "application/vnd.github.v3+json"
+    };
+
+    const realContributionData = {};
+    let page = 1;
+    const maxPages = 5;
+    let hasMoreEvents = true;
+
+    try {
+        while (page <= maxPages && hasMoreEvents) {
+            const apiCheck = apiRateLimiter.canMakeRequest();
+            if (!apiCheck.allowed) {
+                showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
+                break;
+            }
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+            const res = await fetch(`https://api.github.com/users/${username}/events?page=${page}&per_page=100`, { 
+                headers,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                if (res.status === 403 && errorData.message && errorData.message.includes('rate limit')) {
+                    throw new Error("API rate limit exceeded. Wait and try again.");
+                }
+                throw new Error(errorData.message || "Failed to fetch events");
+            }
+            
+            const events = await res.json();
+
+            if (events.length === 0) {
+                hasMoreEvents = false;
+            } else {
+                events.forEach(event => {
+                    const date = new Date(event.created_at);
+                    if (event.type === 'PushEvent') {
+                        const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000;
+                        realContributionData[timestamp] = (realContributionData[timestamp] || 0) + 1;
+                    }
+                });
+                page++;
+            }
+        }
+
+        if (Object.keys(realContributionData).length === 0) {
+            showStatusMessage("No push events found in recent history", "info");
+            toggleLoading(false);
+            return;
+        }
+
+        const eventDates = Object.keys(realContributionData).map(ts => new Date(parseInt(ts) * 1000));
+        const lastEventDate = new Date(Math.max(...eventDates.map(d => d.getTime())));
+
+        const cal = new CalHeatmap();
+        cal.init({
+            itemSelector: "#realHeatmapContainer",
+            domain: "month",
+            subDomain: "day",
+            range: 12,
+            start: new Date(lastEventDate.getFullYear(), lastEventDate.getMonth() - 11, 1),
+            data: realContributionData,
+            legend: [1, 2, 3, 4],
+            tooltip: true,
+            displayLegend: true,
+            verticalOrientation: false,
+            label: { position: "top" },
+            subDomainTitleFormat: {
+                empty: "{date}",
+                filled: "{count} commits on {date}"
+            },
+            cellSize: 10,
+            cellPadding: 2,
+            colLimit: 13,
+            animationDuration: 500
+        });
+        showStatusMessage("✅ Real heatmap loaded!", "success");
+
+    } catch (error) {
+        console.error("Heatmap error:", error);
+        showStatusMessage(`❌ Error: ${error.message}`, "error");
+    } finally {
+        toggleLoading(false);
+    }
+}
+
+// ============= OAUTH HANDLERS =============
+
+document.getElementById('githubLogin').addEventListener('click', () => {
+    window.location.href = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo%20read:user&redirect_uri=${GITHUB_REDIRECT_URI}`;
+});
+
+document.getElementById('githubLogout').addEventListener('click', () => {
+    TokenManager.removeToken('gh_token_oauth');
+    localStorage.removeItem('gh_user_oauth');
+    localStorage.removeItem('gh_username');
+    document.getElementById("token").value = '';
+    document.getElementById("username").value = '';
+    document.getElementById("token").disabled = false;
+    document.getElementById("githubLogin").classList.remove('hidden');
+    document.getElementById("loggedInUser").classList.add('hidden');
+    showStatusMessage("Logged out", "info");
+    loadUserRepos();
+});
+
+// ============= EVENT LISTENERS =============
+
+document.getElementById("token").addEventListener("input", () => {
+    const token = document.getElementById("token").value.trim();
+    if (token) TokenManager.saveToken(token, 'gh_token_enc');
+});
+
+document.getElementById("geminiApiKey").addEventListener("input", () => {
+    const key = document.getElementById("geminiApiKey").value.trim();
+    if (key) TokenManager.saveToken(key, 'gemini_api_key_enc');
+});
+
+document.getElementById("username").addEventListener("input", saveSettingsToStorage);
+document.getElementById("repo").addEventListener("change", () => {
+    saveSettingsToStorage();
+    loadRepoBranches();
+});
+document.getElementById("branch").addEventListener("change", saveSettingsToStorage);
+document.getElementById("filepath").addEventListener("input", saveSettingsToStorage);
+document.getElementById("content").addEventListener("input", saveSettingsToStorage);
+document.getElementById("intervalValue").addEventListener("input", saveSettingsToStorage);
+document.getElementById("intervalType").addEventListener("change", saveSettingsToStorage);
+document.getElementById("numSimulatedCommits").addEventListener("input", saveSettingsToStorage);
+document.getElementById("simulatedStartDate").addEventListener("change", saveSettingsToStorage);
+document.getElementById("simulatedEndDate").addEventListener("change", saveSettingsToStorage);
+document.getElementById("streakPatternSelect").addEventListener("change", () => {
+    saveSettingsToStorage();
+    const patternType = document.getElementById("streakPatternSelect").value;
+    const numCommitsContainer = document.getElementById("numCommitsContainer");
+    numCommitsContainer.style.display = (patternType === "random" || patternType === "random-burst") ? 'block' : 'none';
+});
+document.getElementById("commitContext").addEventListener("input", saveSettingsToStorage);
+
+document.getElementById("safeMode").addEventListener("change", (e) => {
+    safeModeEnabled = e.target.checked;
+    if (window.debugMode) console.log('Safe Mode:', safeModeEnabled);
+    if (!safeModeEnabled && safeModeLoopActive) {
+        toggleAutoCommit();
+    }
+});
+
+document.getElementById("smartRotation").addEventListener("change", (e) => {
+    smartRotationEnabled = e.target.checked;
+    if (window.debugMode) console.log('Smart Rotation:', smartRotationEnabled);
+    saveSettingsToStorage();
+});
+
+document.getElementById("commitPreviewToggle").addEventListener("change", (e) => {
+    commitPreviewEnabled = e.target.checked;
+    if (window.debugMode) console.log('Commit Preview:', commitPreviewEnabled);
+    saveSettingsToStorage();
+});
+
+document.getElementById("darkModeToggle").addEventListener("change", () => {
+    document.documentElement.classList.toggle("dark");
+    saveSettingsToStorage();
+});
+
+// Tab switching
+document.querySelectorAll('.tab-button').forEach(button => {
+    button.addEventListener('click', () => {
+        const tabId = button.dataset.tab;
+
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+        button.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+
+        if (tabId === 'heatmaps' && document.getElementById('username').value.trim() !== '') {
+            loadRealContributionHeatmap();
+        }
+        if (tabId === 'stats') {
+            updateStatsDisplay();
+        }
+    });
+});
+
+// ============= OAUTH CALLBACK HANDLER =============
+
+window.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(window.location.search);
+    const accessTokenFromBackend = params.get('access_token');
+    const userLoginFromBackend = params.get('user_login');
+    const userAvatarFromBackend = params.get('user_avatar');
+
+    if (accessTokenFromBackend && userLoginFromBackend) {
+        showStatusMessage("Processing GitHub login...", "info");
+        toggleLoading(true);
+
+        try {
+            TokenManager.saveToken(accessTokenFromBackend, 'gh_token_oauth');
+            localStorage.setItem('gh_user_oauth', JSON.stringify({
+                login: userLoginFromBackend,
+                avatar_url: decodeURIComponent(userAvatarFromBackend)
+            }));
+
+            document.getElementById("token").value = accessTokenFromBackend;
+            document.getElementById("token").disabled = true;
+            document.getElementById("username").value = userLoginFromBackend;
+            document.getElementById("githubLogin").classList.add('hidden');
+            document.getElementById("loggedInUser").classList.remove('hidden');
+            document.getElementById("userAvatar").src = decodeURIComponent(userAvatarFromBackend);
+            document.getElementById("userName").textContent = userLoginFromBackend;
+
+            showStatusMessage(`✅ Welcome, ${userLoginFromBackend}! Login successful.`, "success");
+            loadUserRepos();
+
+            window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
+        } catch (error) {
+            console.error('OAuth error:', error);
+            showStatusMessage(`❌ OAuth error: ${error.message}`, "error");
+            document.getElementById("token").disabled = false;
+            document.getElementById("githubLogin").classList.remove('hidden');
+            document.getElementById("loggedInUser").classList.add('hidden');
+        } finally {
+            toggleLoading(false);
+        }
+    }
+});
+
+// ============= INITIALIZATION =============
+
+window.onload = () => {
+    loadSettingsFromStorage();
+    setTimeout(loadUserRepos, 100);
+    document.querySelector('.tab-button[data-tab="main-controls"]').click();
+
+    const patternType = document.getElementById("streakPatternSelect").value;
+    const numCommitsContainer = document.getElementById("numCommitsContainer");
+    numCommitsContainer.style.display = (patternType === "random" || patternType === "random-burst") ? 'block' : 'none';
+    
+    updateStatsDisplay();
+    updateRateLimitDisplay();
+    
+    // Update rate limits every minute
+    setInterval(updateRateLimitDisplay, 60000);
+};
+
+// Service Worker Registration
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+            .then(reg => console.log('✅ Service Worker registered'))
+            .catch(err => console.warn('❌ Service Worker failed', err));
+    });
+}
