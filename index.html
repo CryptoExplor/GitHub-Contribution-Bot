@@ -3,7 +3,19 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GitHub Auto Commit Bot</title>
+    <title>GitHub Auto Commit Bot - Secure Edition</title>
+
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
+        font-src 'self' https://fonts.gstatic.com;
+        connect-src 'self' https://api.github.com https://generativelanguage.googleapis.com;
+        img-src 'self' https: data:;
+    ">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
 
     <!-- Favicon & Branding -->
     <link rel="icon" href="favicon.ico" type="image/x-icon">
@@ -12,156 +24,73 @@
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome for hamburger icon (needed for guide.html content) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        /* Custom styling for multi-select to make it look better */
-        select[multiple] {
-            min-height: 100px; /* Adjust as needed */
-        }
-        .tab-button.active {
-            @apply bg-blue-600 text-white;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        /* Dark mode styles */
-        .dark body {
-            background-color: #1a202c; /* Dark background */
-            color: #e2e8f0; /* Light text */
-        }
-        .dark .bg-white {
-            background-color: #2d3748; /* Darker card background */
-        }
-        .dark .text-gray-800 {
-            color: #e2e8f0;
-        }
-        .dark .text-gray-600 {
-            color: #cbd5e0;
-        }
-        .dark .text-gray-700 {
-            color: #cbd5e0;
-        }
-        .dark .border-gray-200 {
-            border-color: #4a5568;
-        }
-        .dark .bg-gray-100 {
-            background-color: #2d3748;
-        }
+        body { font-family: 'Inter', sans-serif; }
+        select[multiple] { min-height: 100px; }
+        .tab-button.active { @apply bg-blue-600 text-white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .dark body { background-color: #1a202c; color: #e2e8f0; }
+        .dark .bg-white { background-color: #2d3748; }
+        .dark .text-gray-800 { color: #e2e8f0; }
+        .dark .text-gray-600 { color: #cbd5e0; }
+        .dark .text-gray-700 { color: #cbd5e0; }
+        .dark .border-gray-200 { border-color: #4a5568; }
+        .dark .bg-gray-100 { background-color: #2d3748; }
         .dark input, .dark textarea, .dark select {
             background-color: #4a5568;
             border-color: #616e7f;
             color: #e2e8f0;
         }
-        .dark input::placeholder, .dark textarea::placeholder {
-            color: #a0aec0;
-        }
-        .dark .bg-gray-50 {
-            background-color: #2d3748;
-        }
-        .dark .text-gray-500 {
-            color: #a0aec0;
-        }
-        .dark .text-gray-700 {
-            color: #cbd5e0;
-        }
-
-        /* Styles for dynamically loaded guide content */
-        #user-guide-content-wrapper {
-            /* Ensure the content itself can scroll if it overflows */
-            overflow-y: auto;
-            max-height: calc(100vh - 200px); /* Adjust based on header/footer size */
-            padding: 1rem; /* Add some padding */
-        }
-        /* Adjust for mobile sidebar in dynamically loaded content */
-        #user-guide-content-wrapper .sidebar-container { /* This will be the aside element from guide.html */
-            position: fixed;
-            top: 0;
-            left: -100%; /* Hidden by default */
-            height: 100%;
-            transition: left 0.3s ease-in-out;
-            z-index: 50; /* Ensure it's above other content */
-            width: 64; /* Match guide.html aside width */
-            background-color: white;
-            border-right: 1px solid #e2e8f0;
-            padding: 1.5rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-        #user-guide-content-wrapper .sidebar-container.active {
-            left: 0; /* Show when active */
-        }
-        #user-guide-content-wrapper .overlay-guide { /* This will be the overlay from guide.html */
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 40;
-        }
-        #user-guide-content-wrapper .overlay-guide.active {
-            display: block;
-        }
-        #user-guide-content-wrapper .menu-button-guide { /* This will be the menu-button from guide.html */
-            display: block; /* Show hamburger button on small screens */
-            position: fixed;
-            top: 1rem;
-            left: 1rem;
-            background-color: #2563eb;
-            color: white;
-            padding: 0.5rem;
-            border-radius: 0.375rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            z-index: 50;
-        }
-        @media (min-width: 769px) {
-            #user-guide-content-wrapper .menu-button-guide {
-                display: none; /* Hide hamburger button on larger screens */
-            }
-            #user-guide-content-wrapper .sidebar-container {
-                position: sticky; /* Keep sidebar sticky on larger screens */
-                left: 0;
-                top: 0;
-                height: auto; /* Allow height to adjust */
-            }
-            #user-guide-content-wrapper .main-content-area { /* This will be the main-content-wrapper from guide.html */
-                margin-left: 16rem; /* Adjust based on sidebar width */
-            }
-        }
-        .dark #user-guide-content-wrapper .bg-white {
-            background-color: #2d3748;
-        }
-        .dark #user-guide-content-wrapper .text-gray-800 {
-            color: #e2e8f0;
-        }
-        .dark #user-guide-content-wrapper .text-gray-600 {
-            color: #cbd5e0;
-        }
-        .dark #user-guide-content-wrapper .border-gray-200 {
-            border-color: #4a5568;
-        }
-        .dark #user-guide-content-wrapper .bg-gray-100 {
-            background-color: #2d3748;
+        .dark .bg-gray-50 { background-color: #2d3748; }
+        
+        .warning-banner {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
         }
     </style>
-    <!-- Cal-Heatmap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.css" rel="stylesheet">
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-between p-4 transition-colors duration-300 ease-in-out">
+    
+    <!-- Ethical Use Warning Banner -->
+    <div class="w-full max-w-4xl mb-4 warning-banner p-4 rounded-lg shadow-md">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <svg class="h-6 w-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <div class="ml-3 flex-1">
+                <h3 class="text-sm font-medium text-yellow-800">⚠️ Responsible Use Policy</h3>
+                <div class="mt-2 text-xs text-yellow-700">
+                    <p>This tool is for: ✅ Testing automation • Learning CI/CD • Managing personal projects</p>
+                    <p class="mt-1">NOT for: ❌ Fabricating history • Misleading employers • Gaming statistics • Spamming repos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="bg-white shadow-xl rounded-2xl p-8 max-w-xl w-full mb-4 dark:bg-gray-800 transition-colors duration-300 ease-in-out">
         <div class="flex flex-col items-center mb-6">
             <img src="https://d.cess.network/n1/1075188011.png" alt="Farmlabs Logo" class="h-16 w-auto mb-2">
             <h1 class="text-3xl font-bold text-center text-gray-800 dark:text-white">Farmlabs GitHub Bot</h1>
-            <p class="text-sm text-gray-600 text-center dark:text-gray-400">Automate your GitHub contributions with ease</p>
+            <p class="text-sm text-gray-600 text-center dark:text-gray-400">Secure & Spam-Proof Edition</p>
+            
+            <!-- Rate Limit Display -->
+            <div class="mt-3 flex space-x-4 text-xs">
+                <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full dark:bg-blue-900 dark:text-blue-200">
+                    Commits: <strong id="rateLimitCommits">60</strong>/hr
+                </span>
+                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full dark:bg-green-900 dark:text-green-200">
+                    API: <strong id="rateLimitAPI">100</strong>/hr
+                </span>
+            </div>
+            
             <!-- Dark Mode Toggle -->
             <div class="flex items-center mt-4">
                 <span class="text-gray-700 dark:text-gray-300 mr-2">Light</span>
@@ -174,13 +103,12 @@
         </div>
 
         <!-- Tab Buttons -->
-        <div class="flex border-b border-gray-200 mb-6 dark:border-gray-700">
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tl-lg hover:bg-gray-100 active dark:text-gray-300 dark:hover:bg-gray-700" data-tab="main-controls">Main Controls</button>
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="historic-commits">Historic Commits</button>
+        <div class="flex border-b border-gray-200 mb-6 dark:border-gray-700 overflow-x-auto">
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tl-lg hover:bg-gray-100 active dark:text-gray-300 dark:hover:bg-gray-700" data-tab="main-controls">Main</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="historic-commits">Historic</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="heatmaps">Heatmaps</button>
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="about">About</button>
             <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="stats">Stats</button>
-            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="user-guide">User Guide</button>
+            <button class="tab-button flex-1 py-2 px-4 text-center text-gray-700 font-medium rounded-tr-lg hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" data-tab="about">About</button>
         </div>
 
         <!-- Tab Content -->
@@ -197,7 +125,7 @@
                     🔐 Login with GitHub
                 </button>
                 <p class="text-xs text-gray-500 mt-2 dark:text-gray-400">
-                    Login with GitHub OAuth for automatic token management and repo loading.
+                    Secure OAuth authentication with automatic token management
                 </p>
             </div>
 
@@ -206,20 +134,14 @@
                 <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                 <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
-                    Required scopes: <code>repo</code> <code>read:user</code>
-                    <span class="ml-1 text-blue-600 underline cursor-pointer" title="repo = push/pull access; read:user = heatmap access.">[?]</span>
-                </p>
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">
-                    (Optional: PAT is only needed if not using GitHub OAuth login above)
+                    Required scopes: <code>repo</code> <code>read:user</code> | Optional if using OAuth
                 </p>
             </div>
 
-            <!-- New: Gemini API Key Input -->
             <div>
-                <label for="geminiApiKey" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Gemini API Key (for Smart Commit Messages):</label>
+                <label for="geminiApiKey" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Gemini API Key (Optional - for Smart Messages):</label>
                 <input type="password" id="geminiApiKey" placeholder="AIzaSyBxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                <p class="text-xs text-gray-500 mt-1 dark:text-gray-400">Required for generating smart commit messages using AI.</p>
             </div>
 
             <div>
@@ -229,7 +151,7 @@
             </div>
 
             <div>
-                <label for="repo" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Select Repositories (Ctrl/Cmd + Click to select multiple):</label>
+                <label for="repo" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Select Repositories (Ctrl/Cmd + Click for multiple):</label>
                 <select id="repo" multiple
                         class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     <option value="">Loading Repos...</option>
@@ -244,18 +166,18 @@
             </div>
 
             <div>
-                <label for="filepath" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">File Path (e.g., README.md or new-file.txt):</label>
+                <label for="filepath" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">File Path:</label>
                 <input type="text" id="filepath" placeholder="README.md"
                        class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
             </div>
 
             <div>
-                <label for="commitContext" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Context for Commit Message (e.g., "fixed login bug"):</label>
-                <textarea id="commitContext" rows="2" placeholder="Briefly describe the commit purpose for AI message generation..."
+                <label for="commitContext" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Context for Smart Message:</label>
+                <textarea id="commitContext" rows="2" placeholder="e.g., fixed login bug, updated docs..."
                           class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
                 <button onclick="generateSmartCommitMessage()" id="generateMessageButton"
                         class="w-full bg-purple-500 text-white py-2 rounded-md font-semibold hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-2">
-                    ✨ Generate Smart Commit Message
+                    ✨ Generate Smart Message
                 </button>
             </div>
 
@@ -283,44 +205,40 @@
                     </select>
                 </div>
 
-                <!-- Smart Rotation Toggle -->
                 <div class="mt-4">
                     <label class="inline-flex items-center space-x-2">
                         <input type="checkbox" id="smartRotation" class="h-5 w-5 text-blue-600 border-gray-300 rounded dark:border-gray-600"/>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">🔄 Enable Smart Rotation (Round-Robin Repos)</span>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">🔄 Smart Rotation (Round-Robin)</span>
                     </label>
-                    <p class="text-xs text-gray-500 mt-1 ml-7 dark:text-gray-400">Cycles through selected repositories for even distribution of commits.</p>
                 </div>
 
-                <!-- ✅ Safe Mode Toggle and Logic -->
                 <div class="mt-4">
                     <label class="inline-flex items-center space-x-2">
                         <input type="checkbox" id="safeMode" class="h-5 w-5 text-blue-600 border-gray-300 rounded dark:border-gray-600"/>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">🛡️ Enable Safe Mode (Human-like Behavior)</span>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">🛡️ Safe Mode (Human-like)</span>
                     </label>
-                    <p class="text-xs text-gray-500 mt-1 ml-7 dark:text-gray-400">Adds random delays, varied messages, and commit pacing to avoid bot patterns.</p>
+                    <p class="text-xs text-gray-500 mt-1 ml-7 dark:text-gray-400">
+                        🕐 30min-3hr delays • 🌙 Quiet hours 11PM-7AM • 📊 Max 20/day • 🎲 Random skips
+                    </p>
                 </div>
 
-                <!-- Commit Preview Toggle -->
                 <div class="mt-4">
                     <label class="inline-flex items-center space-x-2">
                         <input type="checkbox" id="commitPreviewToggle" class="h-5 w-5 text-blue-600 border-gray-300 rounded dark:border-gray-600"/>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">👀 Enable Commit Preview</span>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">👀 Commit Preview</span>
                     </label>
-                    <p class="text-xs text-gray-500 mt-1 ml-7 dark:text-gray-400">Show a preview modal before making a commit.</p>
                 </div>
 
                 <button onclick="toggleAutoCommit()" id="toggleAutoCommitButton"
-                        class="w-full bg-green-600 text-white py-3 rounded-md font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
+                        class="w-full bg-green-600 text-white py-3 rounded-md font-semibold hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-4">
                     Toggle Auto Commit
                 </button>
             </div>
-            <!-- Safe Mode Activity Log -->
+
             <div class="mt-6 border-t border-gray-200 pt-4 dark:border-gray-700">
-                <h3 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Safe Mode Activity Log</h3>
+                <h3 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Activity Log</h3>
                 <ul id="safeModeLog" class="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-48 text-gray-700 space-y-1 dark:bg-gray-700 dark:text-gray-300">
-                    <!-- Log entries will be appended here -->
-                    <li class="text-gray-500 dark:text-gray-400">No Safe Mode activity yet.</li>
+                    <li class="text-gray-500 dark:text-gray-400">No activity yet.</li>
                 </ul>
             </div>
         </div>
@@ -328,8 +246,7 @@
         <div id="historic-commits" class="tab-content space-y-4">
             <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Simulated Historic Commits</h3>
             <p class="text-sm text-gray-600 mb-2 dark:text-gray-400">
-                Generate commits with messages and content referencing past dates.
-                **Note:** This does not alter the actual GitHub commit timestamp, only the visible message.
+                Generate commits with past dates. Note: GitHub timestamps are server-side, so dates appear in messages only.
             </p>
             <div class="space-y-3">
                 <div>
@@ -343,7 +260,7 @@
                            class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                 </div>
                 <div>
-                    <label for="streakPatternSelect" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Choose Pattern or Random:</label>
+                    <label for="streakPatternSelect" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">Pattern:</label>
                     <select id="streakPatternSelect"
                             class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                         <option value="random">Random Distribution</option>
@@ -368,45 +285,42 @@
 
         <div id="heatmaps" class="tab-content space-y-4">
             <div class="border-b border-gray-200 pb-4 mb-4 dark:border-gray-700">
-                <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Real GitHub Contribution Heatmap</h3>
-                <p class="text-sm text-gray-600 mb-2 dark:text-gray-400">
-                    Fetches your public GitHub activity events using the GitHub API.
-                    **Note:** This requires a PAT with 'read:user' or 'public_repo' scope and might not perfectly match your full contribution graph (e.g., private contributions without proper token scope, or older data due to API pagination limits).
-                </p>
+                <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Real GitHub Heatmap</h3>
                 <button onclick="loadRealContributionHeatmap()" id="loadRealHeatmapButton"
                         class="w-full bg-blue-500 text-white py-3 rounded-md font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
                     Load Real Heatmap
                 </button>
                 <div id="realHeatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto dark:bg-gray-700 dark:border-gray-600">
-                    <!-- Real Cal-Heatmap will render here -->
                 </div>
             </div>
 
             <div>
-                <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Simulated Heatmap Preview</h3>
-                <p class="text-sm text-gray-600 mb-2 dark:text-gray-400">
-                    Visualizes your generated simulated commit dates.
-                </p>
+                <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">Simulated Heatmap</h3>
                 <button onclick="renderHeatmapFromSimulatedData()" id="previewHeatmapButton"
                         class="w-full bg-gray-500 text-white py-3 rounded-md font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-2">
-                    Refresh Simulated Heatmap Preview
+                    Refresh Simulated Heatmap
                 </button>
                 <div id="heatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto dark:bg-gray-700 dark:border-gray-600">
-                    <!-- Cal-Heatmap will render here -->
                 </div>
             </div>
         </div>
 
-        <!-- NEW: Stats Tab Content -->
         <div id="stats" class="tab-content space-y-4">
-            <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">📈 Bot Usage Stats</h3>
+            <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">📈 Usage Statistics</h3>
             <ul class="text-sm space-y-2 text-gray-700 dark:text-gray-300">
                 <li>🔢 Total Commits: <strong id="statsTotalCommits">0</strong></li>
                 <li>🛡️ Safe Mode Commits: <strong id="statsSafeModeCommits">0 (0%)</strong></li>
-                <li>📅 First Commit Date: <strong id="statsFirstCommitDate">N/A</strong></li>
+                <li>📅 First Commit: <strong id="statsFirstCommitDate">N/A</strong></li>
                 <li>⏱️ Average Interval: <strong id="statsAverageInterval">N/A</strong></li>
-                <li>📁 Top Used Repo: <strong id="statsTopUsedRepo">N/A</strong></li>
+                <li>📁 Top Repo: <strong id="statsTopUsedRepo">N/A</strong></li>
             </ul>
+            
+            <div id="suspiciousActivityWarning" class="hidden mt-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 dark:bg-red-900 dark:text-red-200">
+                <p class="font-bold">⚠️ Suspicious Activity Detected</p>
+                <p class="text-sm mt-1" id="suspiciousActivityReason"></p>
+                <p class="text-sm mt-1" id="suspiciousActivityRecommendation"></p>
+            </div>
+            
             <button onclick="resetStats()" id="resetStatsButton"
                     class="w-full bg-red-500 text-white py-2 rounded-md font-semibold hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-4">
                 Reset Stats
@@ -416,29 +330,22 @@
         <div id="about" class="tab-content space-y-4">
             <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-white">About This Project</h3>
             <p class="text-gray-700 dark:text-gray-300">
-                This GitHub Auto Commit Bot is a side project developed by <a href="https://farmlabs.pages.dev" target="_blank" class="text-blue-600 hover:underline">Farmlabs</a>.
-                It's designed to help you manage and visualize your GitHub contribution graph with ease.
+                Secure & Spam-Proof GitHub Auto Commit Bot by <a href="https://farmlabs.pages.dev" target="_blank" class="text-blue-600 hover:underline">Farmlabs</a>.
             </p>
             <p class="text-gray-700 dark:text-gray-300">
-                You can find the source code and contribute to this project on GitHub:
-                <a href="https://github.com/CryptoExplor/GitHub-Contribution-Bot" target="_blank" class="text-blue-600 hover:underline">GitHub Repository</a>.
+                <strong>New Security Features:</strong>
             </p>
-            <p class="text-gray-700 dark:text-gray-300">
-                Connect with the developer:
-                <a href="https://github.com/CryptoExplor" target="_blank" class="text-blue-600 hover:underline">Github</a> |
-                <a href="https://t.me/dare_3" target="_blank" class="text-blue-600 hover:underline">Telegram</a>
+            <ul class="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                <li>🔒 Encrypted token storage</li>
+                <li>⏱️ Rate limiting (60/hr, 20/day)</li>
+                <li>🛡️ Enhanced Safe Mode with quiet hours</li>
+                <li>🎲 Random timing for organic patterns</li>
+                <li>📊 Activity pattern monitoring</li>
+                <li>🔐 Secure OAuth implementation</li>
+            </ul>
+            <p class="text-gray-700 dark:text-gray-300 mt-4">
+                Source: <a href="https://github.com/CryptoExplor/GitHub-Contribution-Bot" target="_blank" class="text-blue-600 hover:underline">GitHub Repository</a>
             </p>
-            <p class="text-gray-700 dark:text-gray-300">
-                This tool leverages the power of the Gemini API for smart commit message generation, providing a more intelligent and personalized experience.
-            </p>
-        </div>
-
-        <!-- User Guide Tab Content - Now dynamically loaded -->
-        <div id="user-guide" class="tab-content">
-            <div id="user-guide-content-wrapper" class="h-full w-full">
-                <!-- Guide content will be loaded here dynamically -->
-                <p class="text-center text-gray-500 dark:text-gray-400">Loading User Guide...</p>
-            </div>
         </div>
 
         <div class="mt-6">
@@ -446,7 +353,6 @@
             <pre id="status" class="bg-gray-50 p-3 rounded-md text-sm overflow-auto max-h-64 text-gray-700 dark:bg-gray-700 dark:text-gray-300"></pre>
         </div>
 
-        <!-- Loading Indicator -->
         <div id="loadingIndicator" class="mt-4 text-center hidden">
             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
             <p class="text-gray-600 mt-2 dark:text-gray-400">Processing...</p>
@@ -454,11 +360,7 @@
     </div>
 
     <footer class="mt-8 text-center text-gray-600 text-sm w-full max-w-xl dark:text-gray-400">
-        <p>&copy; 2025 Farmlabs. All rights reserved.</p>
-        <p>
-            <a href="https://farmlabs.pages.dev" target="_blank" class="text-blue-600 hover:underline">Farmlabs Homepage</a> |
-            <a href="https://github.com/CryptoExplor/GitHub-Contribution-Bot" target="_blank" class="text-blue-600 hover:underline">Project GitHub</a>
-        </p>
+        <p>&copy; 2025 Farmlabs. Secure Edition v2.0</p>
     </footer>
 
     <!-- Commit Preview Modal -->
@@ -482,1584 +384,7 @@
         </div>
     </div>
 
-    <!-- Cal-Heatmap JS -->
     <script src="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.min.js"></script>
-    <script>
-        // Global debug mode toggle
-        window.debugMode = true; // Set to false for production to reduce console output
-
-        // NEW SAFE MODE JAVASCRIPT START
-        let safeModeEnabled = false; // Controlled by checkbox
-        let safeModeLoopActive = false; // Controlled by toggleAutoCommit to start/stop the loop
-        let smartRotationEnabled = false; // NEW: Controlled by checkbox for smart rotation
-        let currentRepoIndex = 0; // NEW: Index for smart rotation
-        let commitPreviewEnabled = false; // NEW: Controlled by checkbox for commit preview
-        let previewCommitDetails = {}; // Stores details for the commit preview modal
-        let countdownInterval = null; // For the countdown timer in the modal
-
-        // Stats variables
-        let totalCommits = 0;
-        let safeModeCommitCount = 0;
-        let firstCommitDate = null; // Stored as timestamp
-        let commitTimestamps = []; // Array of timestamps for average interval calculation
-        let repoCommitCounts = {}; // Object to store commit counts per repository
-
-        // --- GitHub OAuth Configuration (IMPORTANT: Replace with your actual Client ID) ---
-        const GITHUB_CLIENT_ID = 'Ov23lidwfr2w8brs3SjU'; // Replace with your GitHub OAuth App Client ID
-        // The frontend now redirects to the backend serverless function for OAuth callback
-        const GITHUB_REDIRECT_URI = window.location.origin + '/api/github-auth';
-        // --- End GitHub OAuth Configuration ---
-
-        document.getElementById('safeMode').addEventListener('change', (e) => {
-            safeModeEnabled = e.target.checked;
-            if (window.debugMode) console.log('Safe Mode:', safeModeEnabled);
-            // If safe mode is toggled off while auto-commit is running in safe mode, stop it.
-            if (!safeModeEnabled && safeModeLoopActive) {
-                // This will trigger the toggleAutoCommit to turn off the running safe mode loop
-                toggleAutoCommit();
-            }
-        });
-
-        // NEW: Event listener for Smart Rotation toggle
-        document.getElementById('smartRotation').addEventListener('change', (e) => {
-            smartRotationEnabled = e.target.checked;
-            if (window.debugMode) console.log('Smart Rotation:', smartRotationEnabled);
-            saveSettingsToStorage(); // Save preference
-        });
-
-        // NEW: Event listener for Commit Preview toggle
-        document.getElementById('commitPreviewToggle').addEventListener('change', (e) => {
-            commitPreviewEnabled = e.target.checked;
-            if (window.debugMode) console.log('Commit Preview:', commitPreviewEnabled);
-            saveSettingsToStorage(); // Save preference
-        });
-
-        const jitter = (base, maxJitter = 60) => base + Math.floor(Math.random() * maxJitter);
-        const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-        const baseInterval = 20 * 60 * 1000; // 20 minutes
-
-        function generateSafeCommitMessage() {
-            const verbs = ["updated", "logged", "noted", "refreshed", "synced"];
-            const subjects = ["stats", "report", "commit log", "daily file", "metadata"];
-            const extras = ["via bot", "manually", "(auto)", "", "#safe"];
-            return `chore: ${verbs[Math.floor(Math.random()*verbs.length)]} ${subjects[Math.floor(Math.random()*subjects.length)]} ${extras[Math.floor(Math.random()*extras.length)]}`.trim();
-        }
-
-        // Modified Auto Commit with Safe Mode
-        async function safeAutoCommitLoop(repos) {
-            const safeModeLog = document.getElementById('safeModeLog');
-            // Clear initial message
-            if (safeModeLog.children.length === 1 && safeModeLog.children[0].textContent === 'No Safe Mode activity yet.') {
-                safeModeLog.innerHTML = '';
-            }
-
-            while (safeModeLoopActive) { // Use safeModeLoopActive to control the loop
-                const wait = jitter(baseInterval, 10 * 60 * 1000); // jitter up to +10min
-                
-                // NEW: Smart Rotation logic for selecting repo
-                let selectedRepo;
-                if (smartRotationEnabled && repos.length > 0) {
-                    selectedRepo = repos[currentRepoIndex];
-                    currentRepoIndex = (currentRepoIndex + 1) % repos.length; // Move to next repo, loop back if end reached
-                } else {
-                    selectedRepo = repos[Math.floor(Math.random() * repos.length)];
-                }
-
-                const message = generateSafeCommitMessage();
-                if (window.debugMode) console.log(`⏳ Safe Mode: Waiting ${Math.round(wait / 60000)} min before next commit to ${selectedRepo}...`);
-                
-                const waitMessage = `⏳ ${new Date().toLocaleTimeString()}: Waiting ${Math.round(wait / 60000)} min before next commit to ${selectedRepo}...`;
-                const listItem = document.createElement('li');
-                listItem.textContent = waitMessage;
-                safeModeLog.prepend(listItem); // Add to top of the log
-                // Keep log to max 10 items
-                while (safeModeLog.children.length > 10) {
-                    safeModeLog.removeChild(safeModeLog.lastChild);
-                }
-
-
-                await delay(wait);
-
-                if (!safeModeLoopActive) { // Check again after delay, in case it was stopped during delay
-                    if (window.debugMode) console.log("Safe Mode Auto Commit loop stopped during delay.");
-                    break;
-                }
-
-                // Call commitToGitHub with the generated safe message
-                // Pass true for isAutoCommit to distinguish from manual commits for preview logic
-                await commitToGitHub(null, null, selectedRepo, message, true);
-            }
-            if (window.debugMode) console.log("Safe Mode Auto Commit loop finished.");
-            showStatusMessage("Safe Mode Auto Commit loop finished.", "info");
-        }
-        // NEW SAFE MODE JAVASCRIPT END
-
-        const randomMessages = [
-            "chore: daily sync",
-            "docs: updated readme",
-            "fix: minor typo fix",
-            "style: format cleanup",
-            "refactor: structure improvement",
-            "feat: auto commit bot",
-            "update: content refresh",
-            "build: dependency update",
-            "perf: optimization",
-            "ci: workflow adjustment"
-        ];
-
-        let autoCommitInterval = null; // Stores the interval ID for auto-commit
-        let simulatedCommitDates = []; // Stores dates of simulated commits for heatmap
-
-        /**
-         * Saves all relevant settings and stats to local storage.
-         */
-        function saveSettingsToStorage() {
-            try {
-                // Only save token if it's manually entered or if OAuth hasn't provided one
-                if (!localStorage.getItem('gh_token_oauth')) { // Only save manual PAT if OAuth token isn't present
-                    localStorage.setItem("gh_token", document.getElementById("token").value.trim());
-                }
-                localStorage.setItem("gh_username", document.getElementById("username").value.trim());
-                // For multi-select, store as JSON string
-                const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
-                localStorage.setItem("gh_repos", JSON.stringify(selectedRepos));
-
-                localStorage.setItem("gh_branch", document.getElementById("branch").value.trim());
-                localStorage.setItem("gh_filepath", document.getElementById("filepath").value.trim());
-                localStorage.setItem("gh_intervalValue", document.getElementById("intervalValue").value.trim());
-                localStorage.setItem("gh_intervalType", document.getElementById("intervalType").value.trim());
-                localStorage.setItem("gh_numSimulatedCommits", document.getElementById("numSimulatedCommits").value.trim());
-                localStorage.setItem("gh_simulatedStartDate", document.getElementById("simulatedStartDate").value.trim());
-                localStorage.setItem("gh_simulatedEndDate", document.getElementById("simulatedEndDate").value.trim());
-                localStorage.setItem("gh_streakPatternSelect", document.getElementById("streakPatternSelect").value.trim());
-                localStorage.setItem("gh_commitContext", document.getElementById("commitContext").value.trim()); // Save new input
-                // Save Gemini API Key if user provides it
-                localStorage.setItem("gemini_api_key", document.getElementById("geminiApiKey")?.value.trim() || '');
-                // Save dark mode preference
-                localStorage.setItem("darkMode", document.documentElement.classList.contains("dark"));
-                // NEW: Save smart rotation preference
-                localStorage.setItem("smartRotation", document.getElementById("smartRotation").checked);
-                // NEW: Save commit preview preference
-                localStorage.setItem("commitPreview", document.getElementById("commitPreviewToggle").checked);
-
-
-                // Save stats data
-                localStorage.setItem("stats_totalCommits", totalCommits);
-                localStorage.setItem("stats_safeModeCommitCount", safeModeCommitCount);
-                localStorage.setItem("stats_firstCommitDate", firstCommitDate); // Store timestamp
-                localStorage.setItem("stats_commitTimestamps", JSON.stringify(commitTimestamps));
-                localStorage.setItem("stats_repoCommitCounts", JSON.stringify(repoCommitCounts));
-
-                // No status message here to avoid spamming on every input change
-            } catch (e) {
-                console.error("Failed to save settings to local storage:", e);
-                showStatusMessage("Error saving settings locally. Please check browser settings.", "error");
-            }
-        }
-
-        /**
-         * Loads all relevant settings and stats from local storage.
-         */
-        function loadSettingsFromStorage() {
-            try {
-                // Prioritize OAuth token if available
-                const oauthToken = localStorage.getItem("gh_token_oauth");
-                const manualToken = localStorage.getItem("gh_token");
-
-                if (oauthToken) {
-                    document.getElementById("token").value = oauthToken;
-                    document.getElementById("token").disabled = true; // Disable manual input if OAuth is active
-                    document.getElementById("githubLogin").classList.add('hidden'); // Hide login button
-                    document.getElementById("loggedInUser").classList.remove('hidden'); // Show user info
-                    const userInfo = JSON.parse(localStorage.getItem("gh_user_oauth") || '{}');
-                    document.getElementById("userAvatar").src = userInfo.avatar_url || 'https://placehold.co/40x40/cccccc/000000?text=NA';
-                    document.getElementById("userName").textContent = userInfo.login || 'GitHub User';
-                    document.getElementById("username").value = userInfo.login || ''; // Set username from OAuth
-                } else {
-                    document.getElementById("token").value = manualToken || '';
-                    document.getElementById("token").disabled = false;
-                    document.getElementById("githubLogin").classList.remove('hidden');
-                    document.getElementById("loggedInUser").classList.add('hidden');
-                    document.getElementById("username").value = localStorage.getItem("gh_username") || ''; // Load manual username
-                }
-
-                // Load selected repos as array
-                // Will select options after repos are loaded in loadUserRepos
-
-                document.getElementById("branch").value = localStorage.getItem("gh_branch") || '';
-                document.getElementById("filepath").value = localStorage.getItem("gh_filepath") || 'README.md';
-                document.getElementById("intervalValue").value = localStorage.getItem("gh_intervalValue") || '24';
-                document.getElementById("intervalType").value = localStorage.getItem("gh_intervalType") || 'hours';
-                document.getElementById("numSimulatedCommits").value = localStorage.getItem("gh_numSimulatedCommits") || '10';
-                document.getElementById("simulatedStartDate").value = localStorage.getItem("gh_simulatedStartDate") || '';
-                document.getElementById("simulatedEndDate").value = localStorage.getItem("gh_simulatedEndDate") || '';
-                document.getElementById("streakPatternSelect").value = localStorage.getItem("gh_streakPatternSelect") || 'random'; // Default to random
-                document.getElementById("commitContext").value = localStorage.getItem("gh_commitContext") || ''; // Load new input
-                // Load Gemini API Key
-                if (document.getElementById("geminiApiKey")) {
-                    document.getElementById("geminiApiKey").value = localStorage.getItem("gemini_api_key") || '';
-                }
-                // Load dark mode preference
-                const isDarkMode = localStorage.getItem("darkMode") === "true";
-                document.documentElement.classList.toggle("dark", isDarkMode);
-                document.getElementById("darkModeToggle").checked = isDarkMode;
-                // NEW: Load smart rotation preference
-                smartRotationEnabled = localStorage.getItem("smartRotation") === "true";
-                document.getElementById("smartRotation").checked = smartRotationEnabled;
-                // NEW: Load commit preview preference
-                commitPreviewEnabled = localStorage.getItem("commitPreview") === "true";
-                document.getElementById("commitPreviewToggle").checked = commitPreviewEnabled;
-
-
-                // Load stats data
-                totalCommits = parseInt(localStorage.getItem("stats_totalCommits") || '0');
-                safeModeCommitCount = parseInt(localStorage.getItem("stats_safeModeCommitCount") || '0');
-                firstCommitDate = parseInt(localStorage.getItem("stats_firstCommitDate") || '0') || null;
-                commitTimestamps = JSON.parse(localStorage.getItem("stats_commitTimestamps") || '[]');
-                repoCommitCounts = JSON.parse(localStorage.getItem("stats_repoCommitCounts") || '{}');
-
-            } catch (e) {
-                console.error("Failed to load settings from local storage:", e);
-                showStatusMessage("Error loading settings locally. Please enter them manually.", "error");
-            }
-        }
-
-        /**
-         * Updates the display of the stats panel.
-         */
-        function updateStatsDisplay() {
-            document.getElementById("statsTotalCommits").textContent = totalCommits;
-
-            const safeModePercentage = totalCommits > 0 ? ((safeModeCommitCount / totalCommits) * 100).toFixed(1) : 0;
-            document.getElementById("statsSafeModeCommits").textContent = `${safeModeCommitCount} (${safeModePercentage}%)`;
-
-            document.getElementById("statsFirstCommitDate").textContent = firstCommitDate ? new Date(firstCommitDate).toLocaleDateString() : "N/A";
-
-            let averageInterval = "N/A";
-            if (commitTimestamps.length > 1) {
-                const sortedTimestamps = [...commitTimestamps].sort((a, b) => a - b);
-                let totalDiff = 0;
-                for (let i = 1; i < sortedTimestamps.length; i++) {
-                    totalDiff += (sortedTimestamps[i] - sortedTimestamps[i-1]);
-                }
-                const avgDiffMs = totalDiff / (sortedTimestamps.length - 1);
-                
-                // Convert to human-readable format (minutes, hours, days)
-                if (avgDiffMs < 60 * 1000) { // Less than 1 minute
-                    averageInterval = `${(avgDiffMs / 1000).toFixed(0)} seconds`;
-                } else if (avgDiffMs < 60 * 60 * 1000) { // Less than 1 hour
-                    averageInterval = `${(avgDiffMs / (60 * 1000)).toFixed(1)} minutes`;
-                } else if (avgDiffMs < 24 * 60 * 60 * 1000) { // Less than 1 day
-                    averageInterval = `${(avgDiffMs / (60 * 60 * 1000)).toFixed(1)} hours`;
-                } else {
-                    averageInterval = `${(avgDiffMs / (24 * 60 * 60 * 1000)).toFixed(1)} days`;
-                }
-            }
-            document.getElementById("statsAverageInterval").textContent = averageInterval;
-
-            let topUsedRepo = "N/A";
-            let maxCommits = 0;
-            for (const repo in repoCommitCounts) {
-                if (repoCommitCounts[repo] > maxCommits) {
-                    maxCommits = repoCommitCounts[repo];
-                    topUsedRepo = repo;
-                }
-            }
-            document.getElementById("statsTopUsedRepo").textContent = topUsedRepo;
-        }
-
-        /**
-         * Resets all usage statistics.
-         */
-        function resetStats() {
-            // Replaced alert with a custom modal-like confirmation
-            const confirmReset = document.createElement('div');
-            confirmReset.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-            confirmReset.innerHTML = `
-                <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm dark:bg-gray-800 dark:text-white">
-                    <h3 class="text-lg font-bold mb-4">Confirm Reset</h3>
-                    <p class="text-gray-700 dark:text-gray-300 mb-6">Are you sure you want to reset all usage statistics? This action cannot be undone.</p>
-                    <div class="flex justify-end space-x-2">
-                        <button id="cancelReset" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Cancel</button>
-                        <button id="confirmReset" class="bg-red-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-700">Reset</button>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(confirmReset);
-
-            document.getElementById('cancelReset').onclick = () => {
-                document.body.removeChild(confirmReset);
-            };
-
-            document.getElementById('confirmReset').onclick = () => {
-                totalCommits = 0;
-                safeModeCommitCount = 0;
-                firstCommitDate = null;
-                commitTimestamps = [];
-                repoCommitCounts = {};
-                saveSettingsToStorage(); // Persist reset state
-                updateStatsDisplay(); // Update UI
-                showStatusMessage("Usage statistics have been reset.", "info");
-                document.body.removeChild(confirmReset);
-            };
-        }
-
-        /**
-         * Fetches user repositories from GitHub and populates the multi-select dropdown.
-         * This function now uses the OAuth token if available, falling back to PAT.
-         */
-        async function loadUserRepos() {
-            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
-            const username = document.getElementById("username").value.trim(); // Username might be from OAuth or manual
-            const repoSelect = document.getElementById("repo");
-            const branchSelect = document.getElementById("branch");
-
-            repoSelect.innerHTML = "<option value=''>Loading Repos...</option>"; // Reset and show loading
-            branchSelect.innerHTML = "<option value=''>Select Repo First</option>"; // Reset branch dropdown
-
-            if (!token || !username) {
-                repoSelect.innerHTML = "<option value=''>Enter Token and Username</option>";
-                return;
-            }
-
-            const headers = {
-                "Authorization": `token ${token}`,
-                "Accept": "application/vnd.github.v3+json"
-            };
-
-            try {
-                // Use the /user/repos endpoint for authenticated user's repositories
-                const res = await fetch(`https://api.github.com/user/repos?type=owner&per_page=100`, { headers });
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.message || "Failed to fetch repositories.");
-                }
-                const repos = await res.json();
-                repoSelect.innerHTML = ""; // Clear loading message
-
-                const savedSelectedRepos = JSON.parse(localStorage.getItem("gh_repos") || '[]');
-
-                repos.forEach(repo => {
-                    const option = document.createElement("option");
-                    option.value = repo.full_name;
-                    option.innerText = repo.full_name;
-                    // Select options that were previously saved
-                    if (savedSelectedRepos.includes(repo.full_name)) {
-                        option.selected = true;
-                    }
-                    repoSelect.appendChild(option);
-                });
-
-                // If no repos were saved or found, select the first one by default if available
-                if (savedSelectedRepos.length === 0 && repos.length > 0) {
-                    repoSelect.options[0].selected = true;
-                }
-
-                // Trigger branch loading for the first selected repo (or default)
-                loadRepoBranches();
-                showStatusMessage("Repositories loaded successfully. Select one or more.", "success");
-
-            } catch (err) {
-                console.error("Error loading repositories:", err);
-                repoSelect.innerHTML = "<option value=''>Error loading repos</option>";
-                branchSelect.innerHTML = "<option value=''>Error loading branches</option>";
-                showStatusMessage(`Error loading repositories: ${err.message}. Check token/username.`, "error");
-            }
-        }
-
-        /**
-         * Fetches branches for the selected repository (first one if multiple are selected) and populates the dropdown.
-         */
-        async function loadRepoBranches() {
-            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
-            const repoSelect = document.getElementById("repo");
-            const branchSelect = document.getElementById("branch");
-
-            // Get the first selected repo for branch loading, as branches are repo-specific
-            const selectedRepos = Array.from(repoSelect.selectedOptions).map(option => option.value);
-            const repoFullName = selectedRepos[0]; // Use the first selected repo for branch loading
-
-            branchSelect.innerHTML = "<option value=''>Loading Branches...</option>"; // Reset and show loading
-
-            if (!token || !repoFullName) {
-                branchSelect.innerHTML = "<option value=''>Select Repo First</option>";
-                return;
-            }
-
-            const headers = {
-                "Authorization": `token ${token}`,
-                "Accept": "application/vnd.github.v3+json"
-            };
-
-            try {
-                const res = await fetch(`https://api.github.com/repos/${repoFullName}/branches`, { headers });
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.message || "Failed to fetch branches.");
-                }
-                const branches = await res.json();
-                branchSelect.innerHTML = "<option value=''>Select Branch</option>"; // Clear loading message
-                branches.forEach(branch => {
-                    const option = document.createElement("option");
-                    option.value = branch.name;
-                    option.innerText = branch.name;
-                    branchSelect.appendChild(option);
-                });
-
-                // Set previously selected branch if it exists
-                const savedBranch = localStorage.getItem("gh_branch");
-                if (savedBranch && branches.some(b => b.name === savedBranch)) {
-                    branchSelect.value = savedBranch;
-                    showStatusMessage("Branches loaded successfully.", "success");
-                } else if (branches.length > 0) {
-                    branchSelect.value = branches[0].name; // Select the first branch by default
-                    showStatusMessage("Branches loaded successfully. Defaulting to first branch.", "success");
-                } else {
-                    showStatusMessage("No branches found for this repository.", "info");
-                }
-
-            } catch (err) {
-                console.error("Error loading branches:", err);
-                branchSelect.innerHTML = "<option value=''>Error loading branches</option>";
-                showStatusMessage(`Error loading branches: ${err.message}.`, "error");
-            }
-        }
-
-        /**
-         * Converts a string to Base64.
-         * @param {string} str The input string.
-         * @returns {string} The Base64 encoded string.
-         */
-        function toBase64(str) {
-            return btoa(unescape(encodeURIComponent(str)));
-        }
-
-        /**
-         * Converts a Base64 string to a regular string.
-         * @param {string} base64 The Base64 encoded string.
-         * @returns {string} The decoded string.
-         */
-        function fromBase64(base64) {
-            return decodeURIComponent(escape(atob(base64)));
-        }
-
-        /**
-         * Displays a status message to the user.
-         * @param {string} message The message to display.
-         * @param {string} type The type of message ('success', 'error', 'info').
-         */
-        function showStatusMessage(message, type) {
-            const statusMessageDiv = document.getElementById("status");
-            statusMessageDiv.innerHTML = message; // Use innerHTML to allow links
-            statusMessageDiv.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800', 'bg-gray-50', 'dark:bg-gray-700', 'dark:text-gray-300');
-
-            if (type === 'success') {
-                statusMessageDiv.classList.add('bg-green-100', 'text-green-800');
-            } else if (type === 'error') {
-                statusMessageDiv.classList.add('bg-red-100', 'text-red-800');
-            } else if (type === 'info') {
-                statusMessageDiv.classList.add('bg-blue-100', 'text-blue-800');
-            } else { // default to gray for general status
-                statusMessageDiv.classList.add('bg-gray-50', 'text-gray-700', 'dark:bg-gray-700', 'dark:text-gray-300');
-            }
-        }
-
-        /**
-         * Toggles the loading indicator visibility and disables/enables all interactive elements.
-         * @param {boolean} show True to show, false to hide.
-         */
-        function toggleLoading(show) {
-            document.getElementById('loadingIndicator').classList.toggle('hidden', !show);
-
-            const allControls = [
-                document.getElementById('makeCommitButton'),
-                document.getElementById('toggleAutoCommitButton'),
-                document.getElementById('generateSimulatedCommitsButton'),
-                document.getElementById('previewHeatmapButton'),
-                document.getElementById('loadRealHeatmapButton'),
-                // document.getElementById('token'), // Keep token input enabled for manual entry fallback
-                document.getElementById('geminiApiKey'), // Added Gemini API Key input to controls
-                document.getElementById('username'),
-                document.getElementById('repo'),
-                document.getElementById('branch'),
-                document.getElementById('filepath'),
-                document.getElementById('content'),
-                document.getElementById('intervalValue'),
-                document.getElementById('intervalType'),
-                document.getElementById('numSimulatedCommits'),
-                document.getElementById('simulatedStartDate'),
-                document.getElementById('simulatedEndDate'),
-                document.getElementById('streakPatternSelect'),
-                document.getElementById('commitContext'),
-                document.getElementById('generateMessageButton'),
-                document.getElementById('safeMode'), // Also disable safe mode checkbox
-                document.getElementById('darkModeToggle'), // Disable dark mode toggle during loading
-                document.getElementById('smartRotation'), // Disable smart rotation toggle during loading
-                document.getElementById('resetStatsButton'), // Disable reset stats button during loading
-                document.getElementById('commitPreviewToggle'), // NEW: Disable commit preview toggle during loading
-                document.getElementById('githubLogin'), // Disable login button
-                document.getElementById('githubLogout') // Disable logout button
-            ];
-
-            allControls.forEach(control => {
-                if (control) { // Ensure the element exists
-                    control.disabled = show;
-                }
-            });
-             // Explicitly handle token input based on OAuth state
-            if (localStorage.getItem('gh_token_oauth')) {
-                document.getElementById("token").disabled = true;
-            } else {
-                document.getElementById("token").disabled = show; // Disable if loading, enable otherwise
-            }
-        }
-
-        /**
-         * Handles a single manual commit to GitHub.
-         */
-        async function makeSingleCommit() {
-            // This function will now prepare the commit and then show the preview modal
-            // The actual commit will happen after confirmation from the modal
-            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
-            const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
-            const branch = document.getElementById("branch").value.trim();
-            const path = document.getElementById("filepath").value.trim();
-            let contentInput = document.getElementById("content").value;
-
-            if (selectedRepos.length === 0) {
-                showStatusMessage("Please select at least one repository.", "error");
-                return;
-            }
-            if (!token || !branch || !path) {
-                showStatusMessage("Please fill in all required fields: Token, Branch, and File Path.", "error");
-                return;
-            }
-
-            // Determine the target repository for this manual commit
-            let repo;
-            if (smartRotationEnabled && selectedRepos.length > 0) {
-                repo = selectedRepos[currentRepoIndex];
-                currentRepoIndex = (currentRepoIndex + 1) % selectedRepos.length;
-            } else {
-                repo = selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
-            }
-
-            let commitMessage;
-            if (contentInput === '') {
-                 const messagePart = randomMessages[Math.floor(Math.random() * randomMessages.length)];
-                 commitMessage = `${messagePart} - ${new Date().toLocaleString()}`;
-                 contentInput = `# ${messagePart}\n\nUpdated on ${new Date().toLocaleString()}`;
-            } else {
-                commitMessage = `${randomMessages[Math.floor(Math.random() * randomMessages.length)]} - ${new Date().toLocaleString()}`;
-            }
-
-            previewCommitDetails = {
-                repo: repo,
-                branch: branch,
-                path: path,
-                message: commitMessage,
-                content: contentInput,
-                isAutoCommit: false // This is a manual commit
-            };
-
-            if (commitPreviewEnabled) {
-                showCommitPreviewModal();
-            } else {
-                // If preview is off, commit directly
-                await commitToGitHub(path, null, repo, commitMessage, false);
-            }
-        }
-
-        /**
-         * Displays the commit preview modal.
-         */
-        function showCommitPreviewModal() {
-            const modal = document.getElementById('commitPreviewModal');
-            document.getElementById('previewRepo').textContent = previewCommitDetails.repo;
-            document.getElementById('previewBranch').textContent = previewCommitDetails.branch;
-            document.getElementById('previewFilePath').textContent = previewCommitDetails.path;
-            document.getElementById('previewCommitMessage').value = previewCommitDetails.message;
-            document.getElementById('previewContentSnippet').value = previewCommitDetails.content.substring(0, 500) + (previewCommitDetails.content.length > 500 ? '...' : ''); // Show snippet
-
-            // Hide countdown for manual commits
-            document.getElementById('previewCountdown').textContent = '';
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-                countdownInterval = null;
-            }
-
-            modal.classList.remove('hidden');
-            toggleLoading(true); // Disable background interactions
-        }
-
-        /**
-         * Confirms the commit from the preview modal.
-         */
-        async function confirmCommitPreview() {
-            document.getElementById('commitPreviewModal').classList.add('hidden');
-            toggleLoading(false); // Re-enable background interactions
-
-            // Use the potentially edited message from the modal
-            previewCommitDetails.message = document.getElementById('previewCommitMessage').value;
-
-            await commitToGitHub(
-                previewCommitDetails.path,
-                null, // dateForMessage is not used here for manual/auto commits
-                previewCommitDetails.repo,
-                previewCommitDetails.message,
-                previewCommitDetails.isAutoCommit // Pass the original isAutoCommit flag
-            );
-        }
-
-        /**
-         * Cancels the commit from the preview modal.
-         */
-        function cancelCommitPreview() {
-            document.getElementById('commitPreviewModal').classList.add('hidden');
-            toggleLoading(false); // Re-enable background interactions
-            showStatusMessage("Commit cancelled by user.", "info");
-            if (countdownInterval) {
-                clearInterval(countdownInterval);
-                countdownInterval = null;
-            }
-        }
-
-
-        /**
-         * Handles the commit process to GitHub.
-         * @param {string} [targetFilePath] The file path to commit to. Defaults to main filepath.
-         * @param {string} [dateForMessage] Optional date string to include in the commit message/content for simulation.
-         * @param {string} [repoOverride] Optional: specific repo to commit to (used by safe mode).
-         * @param {string} [commitMessageOverride] Optional: specific commit message (used by safe mode).
-         * @param {boolean} [isAutoCommit=false] True if this commit is part of an automated process (e.g., safe mode, auto-commit interval).
-         */
-        async function commitToGitHub(targetFilePath = null, dateForMessage = null, repoOverride = null, commitMessageOverride = null, isAutoCommit = false) {
-            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
-            let selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
-            const branch = document.getElementById("branch").value.trim();
-            const path = targetFilePath || document.getElementById("filepath").value.trim(); // Use main filepath
-            let contentInput = document.getElementById("content").value;
-
-            if (selectedRepos.length === 0 && !repoOverride) {
-                showStatusMessage("Please select at least one repository.", "error");
-                return false;
-            }
-            if (!token || !branch || !path) {
-                showStatusMessage("Please fill in all required fields: Token, Branch, and File Path.", "error");
-                return false; // Indicate failure
-            }
-
-            // Determine the target repository
-            let repo;
-            if (repoOverride) { // If safe mode or other auto-process provided a repo
-                repo = repoOverride;
-            } else if (smartRotationEnabled && selectedRepos.length > 0) { // Smart Rotation for manual commits
-                repo = selectedRepos[currentRepoIndex];
-                currentRepoIndex = (currentRepoIndex + 1) % selectedRepos.length; // Move to next repo, loop back if end reached
-            } else { // Random selection for manual commits if smart rotation is off
-                repo = selectedRepos[Math.floor(Math.random() * selectedRepos.length)];
-            }
-
-            saveSettingsToStorage(); // Save settings on successful input
-
-            // Only show loading indicator for single manual commit if not using preview or auto-commit
-            if (!dateForMessage && !isAutoCommit && !commitPreviewEnabled) {
-                toggleLoading(true);
-                showStatusMessage(`Attempting to commit to ${repo}...`, "info");
-            }
-
-            const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
-            const headers = {
-                "Authorization": `token ${token}`,
-                "Accept": "application/vnd.github.v3+json"
-            };
-
-            let sha = null;
-            let finalContent;
-            let commitMessage;
-
-            if (commitMessageOverride) { // If safe mode or other auto-process provided a message
-                commitMessage = commitMessageOverride;
-                finalContent = `# Auto Commit\n\n${commitMessageOverride}\n\nUpdated on ${new Date().toLocaleString()}`;
-            } else if (contentInput === '' || dateForMessage) { // If user content is empty OR we are simulating past commits
-                 const messagePart = randomMessages[Math.floor(Math.random() * randomMessages.length)];
-                 finalContent = `# ${messagePart}\n\nUpdated on ${dateForMessage || new Date().toLocaleString()}`;
-                 commitMessage = `${messagePart} - ${dateForMessage || new Date().toLocaleString()}`;
-            } else { // User provided content for a single manual commit
-                finalContent = contentInput;
-                commitMessage = `${randomMessages[Math.floor(Math.random() * randomMessages.length)]} - ${new Date().toLocaleString()}`;
-            }
-
-            // If commit preview is enabled and this is not a simulated historic commit, show preview first
-            // Note: The logic for showing the preview for manual commits is now handled in `makeSingleCommit`
-            // and for auto-commits in `toggleAutoCommit` and `safeAutoCommitLoop`.
-            // This `commitToGitHub` function will only be called *after* the preview is handled or if preview is disabled.
-            if (commitPreviewEnabled && !dateForMessage && isAutoCommit) { // Only for auto-commits that need preview
-                previewCommitDetails = {
-                    repo: repo,
-                    branch: branch,
-                    path: path,
-                    message: commitMessage,
-                    content: finalContent,
-                    isAutoCommit: isAutoCommit
-                };
-                showCommitPreviewModalWithCountdown(repo, branch, path, commitMessage, finalContent);
-                return true; // Indicate that preview is shown, actual commit will happen after countdown
-            }
-
-
-            const encodedContent = toBase64(finalContent);
-
-            try {
-                // Try to get the file's current SHA and content from the specified branch
-                const getRes = await fetch(`${apiUrl}?ref=${branch}`, { headers });
-                if (getRes.status === 200) {
-                    const data = await getRes.json();
-                    sha = data.sha;
-                } else if (getRes.status === 404) {
-                    // File not found, will create new file
-                } else {
-                    const errorData = await getRes.json();
-                    throw new Error(`Failed to fetch file: ${errorData.message || getRes.statusText}`);
-                }
-            } catch (error) {
-                console.error("Error fetching file:", error);
-            }
-
-            const body = {
-                message: commitMessage,
-                content: encodedContent,
-                sha: sha, // sha is null for new files, which is correct for GitHub API
-                branch: branch // Specify the branch for the commit
-            };
-
-            try {
-                const putRes = await fetch(apiUrl, {
-                    method: "PUT",
-                    headers,
-                    body: JSON.stringify(body)
-                });
-
-                const result = await putRes.json();
-
-                if (putRes.ok) {
-                    const commitHash = result.commit.sha.substring(0, 7); // Get short hash
-                    const commitRepo = repo.split('/')[1]; // Get repo name
-                    const cliOutput = `[${branch} ${commitHash}] ${commitMessage}\n 1 file changed, 1 insertion(+)`;
-
-                    // Update stats
-                    totalCommits++;
-                    if (isAutoCommit) {
-                        safeModeCommitCount++;
-                    }
-                    if (firstCommitDate === null) {
-                        firstCommitDate = Date.now();
-                    }
-                    commitTimestamps.push(Date.now());
-                    repoCommitCounts[repo] = (repoCommitCounts[repo] || 0) + 1;
-                    saveSettingsToStorage(); // Save updated stats
-                    updateStatsDisplay(); // Update stats UI
-
-                    if (!dateForMessage && !isAutoCommit) { // Only show full status for manual/non-simulated commits
-                        showStatusMessage(`✅ Commit successful to ${repo}!\n<pre class="bg-gray-100 p-2 rounded mt-1 text-xs dark:bg-gray-700 dark:text-gray-300">${cliOutput}</pre>Check your repo: <a href="${result.commit.html_url}" target="_blank" class="text-blue-600 hover:underline">${result.commit.html_url}</a>`, "success");
-                    } else if (isAutoCommit) {
-                        if (window.debugMode) console.log(`✅ Auto Commit successful to ${repo}: ${commitMessage}`);
-                        const safeModeLog = document.getElementById('safeModeLog');
-                        const listItem = document.createElement('li');
-                        listItem.innerHTML = `✅ ${new Date().toLocaleTimeString()}: Commit to <b>${commitRepo}</b>: <code>${commitMessage}</code>`;
-                        safeModeLog.prepend(listItem);
-                        while (safeModeLog.children.length > 10) {
-                            safeModeLog.removeChild(safeModeLog.lastChild);
-                        }
-                    }
-                    return true; // Indicate success
-                } else {
-                    throw new Error(result.message || "Unknown error during commit.");
-                }
-            } catch (error) {
-                console.error("Commit failed:", error);
-                if (!dateForMessage && !isAutoCommit) {
-                    showStatusMessage(`❌ Commit failed to ${repo}: ${error.message}`, "error");
-                } else if (isAutoCommit) {
-                    if (window.debugMode) console.error(`❌ Auto Commit failed to ${repo}: ${error.message}`);
-                    const safeModeLog = document.getElementById('safeModeLog');
-                    const listItem = document.createElement('li');
-                    listItem.innerHTML = `❌ ${new Date().toLocaleTimeString()}: Commit to <b>${repo.split('/')[1]}</b> failed: ${error.message}`;
-                    listItem.classList.add('text-red-500');
-                    safeModeLog.prepend(listItem);
-                    while (safeModeLog.children.length > 10) {
-                        safeModeLog.removeChild(safeModeLog.lastChild);
-                    }
-                }
-                return false; // Indicate failure
-            } finally {
-                if (!dateForMessage && !isAutoCommit) {
-                    toggleLoading(false);
-                }
-            }
-        }
-
-        /**
-         * Displays the commit preview modal with a countdown for auto-commits.
-         * @param {string} repo The repository name.
-         * @param {string} branch The branch name.
-         * @param {string} path The file path.
-         * @param {string} message The commit message.
-         * @param {string} content The file content.
-         */
-        function showCommitPreviewModalWithCountdown(repo, branch, path, message, content) {
-            const modal = document.getElementById('commitPreviewModal');
-            document.getElementById('previewRepo').textContent = repo;
-            document.getElementById('previewBranch').textContent = branch;
-            document.getElementById('previewFilePath').textContent = path;
-            document.getElementById('previewCommitMessage').value = message;
-            document.getElementById('previewContentSnippet').value = content.substring(0, 500) + (content.length > 500 ? '...' : '');
-
-            const countdownElement = document.getElementById('previewCountdown');
-            let timeLeft = 10; // 10 seconds countdown
-
-            modal.classList.remove('hidden');
-            toggleLoading(true); // Disable background interactions
-
-            countdownElement.textContent = `Auto-committing in ${timeLeft}s...`;
-
-            countdownInterval = setInterval(() => {
-                timeLeft--;
-                countdownElement.textContent = `Auto-committing in ${timeLeft}s...`;
-                if (timeLeft <= 0) {
-                    clearInterval(countdownInterval);
-                    countdownInterval = null;
-                    modal.classList.add('hidden');
-                    toggleLoading(false); // Re-enable background interactions
-                    // Automatically trigger the commit
-                    commitToGitHub(path, null, repo, message, true); // Pass true for isAutoCommit
-                }
-            }, 1000);
-        }
-
-
-        /**
-         * Toggles the daily auto-commit feature based on user-defined interval or safe mode.
-         */
-        async function toggleAutoCommit() {
-            const toggleButton = document.getElementById("toggleAutoCommitButton");
-            const intervalValue = parseInt(document.getElementById("intervalValue").value);
-            const intervalType = document.getElementById("intervalType").value;
-            const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
-
-            // If auto-commit is currently ON (either mode)
-            if (autoCommitInterval !== null || safeModeLoopActive) {
-                // Stop any running auto-commit
-                if (autoCommitInterval !== null) {
-                    clearInterval(autoCommitInterval);
-                    autoCommitInterval = null;
-                }
-                if (safeModeLoopActive) {
-                    safeModeLoopActive = false; // Signal safeAutoCommitLoop to stop
-                    // Give a small delay for the async loop to truly exit
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-
-                toggleButton.textContent = "Toggle Auto Commit";
-                toggleButton.classList.remove('bg-red-600', 'hover:bg-red-700');
-                toggleButton.classList.add('bg-green-600', 'hover:bg-green-700');
-                showStatusMessage("❌ Auto Commit Disabled", "error");
-            } else { // If auto-commit is currently OFF, start it
-                if (selectedRepos.length === 0) {
-                    showStatusMessage("Please select at least one repository for auto-commit.", "error");
-                    return;
-                }
-
-                if (safeModeEnabled) {
-                    safeModeLoopActive = true;
-                    toggleButton.textContent = `Safe Mode Auto Commit ON`;
-                    toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
-                    toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
-                    showStatusMessage(`✅ Safe Mode Auto Commit Enabled. Committing to random repo with human-like delays.`, "success");
-                    // Start the safe mode loop, it will handle its own delays and and initial commit
-                    safeAutoCommitLoop(selectedRepos);
-                } else {
-                    if (isNaN(intervalValue) || intervalValue <= 0) {
-                        showStatusMessage("Please enter a valid positive number for the interval.", "error");
-                        return;
-                    }
-
-                    let intervalMilliseconds = 0;
-                    switch (intervalType) {
-                        case "minutes": intervalMilliseconds = intervalValue * 60 * 1000; break;
-                        case "hours": intervalMilliseconds = intervalValue * 60 * 60 * 1000; break;
-                        case "days": intervalMilliseconds = intervalValue * 24 * 60 * 60 * 1000; break;
-                    }
-
-                    // Perform an immediate commit when starting auto-commit
-                    await commitToGitHub(null, null, null, null, true); // Pass true for isAutoCommit
-                    autoCommitInterval = setInterval(() => commitToGitHub(null, null, null, null, true), intervalMilliseconds); // Pass true for isAutoCommit
-                    toggleButton.textContent = `Auto Commit ON (Every ${intervalValue} ${intervalType})`;
-                    toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
-                    toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
-                    showStatusMessage(`✅ Auto Commit Enabled (Every ${intervalValue} ${intervalType})`, "success");
-                }
-            }
-        }
-
-        /**
-         * Generates an array of dates based on the selected pattern and date range.
-         * @param {string} patternType The type of streak pattern.
-         * @param {Date} startDate The start date for the pattern.
-         * @param {Date} endDate The end date for the pattern.
-         * @param {number} numCommits The desired number of commits for random/burst.
-         * @returns {Date[]} An array of Date objects.
-         */
-        function generatePatternDates(patternType, startDate, endDate, numCommits) {
-            const dates = [];
-            let currentDate = new Date(startDate);
-            currentDate.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
-            const timeDiff = endDate.getTime() - startDate.getTime(); // Difference in milliseconds
-
-            if (patternType === "random") {
-                for (let i = 0; i < numCommits; i++) {
-                    const randomTime = startDate.getTime() + Math.random() * timeDiff;
-                    dates.push(new Date(randomTime));
-                }
-            } else if (patternType === "random-burst") {
-                const actualNumBursts = Math.min(numCommits, Math.floor(Math.random() * 6) + 5); // 5 to 10 random commits, capped by numCommits
-                for (let i = 0; i < actualNumBursts; i++) {
-                    const randomTime = startDate.getTime() + Math.random() * timeDiff;
-                    dates.push(new Date(randomTime));
-                }
-            } else {
-                while (currentDate <= endDate) {
-                    const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-
-                    switch (patternType) {
-                        case "30-day-streak":
-                        case "year-grid": // Daily commits
-                            dates.push(new Date(currentDate));
-                            break;
-                        case "checkerboard": // Every other day
-                            const dayDiff = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                            if (dayDiff % 2 === 0) {
-                                dates.push(new Date(currentDate));
-                            }
-                            break;
-                        case "weekdays-only": // Mon-Fri
-                            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-                                dates.push(new Date(currentDate));
-                            }
-                            break;
-                    }
-                    currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
-                }
-            }
-            return dates;
-        }
-
-        /**
-         * Generates simulated historic commits based on selected pattern or random distribution.
-         */
-        async function generateSimulatedCommits() { // Consolidated function
-            const numCommits = parseInt(document.getElementById("numSimulatedCommits").value);
-            const simulatedStartDateStr = document.getElementById("simulatedStartDate").value;
-            const simulatedEndDateStr = document.getElementById("simulatedEndDate").value;
-            const patternType = document.getElementById("streakPatternSelect").value;
-            const mainFilePath = document.getElementById("filepath").value.trim(); // Use main filepath
-
-            if (!simulatedStartDateStr || !simulatedEndDateStr) {
-                showStatusMessage("Please select both a Start Date and an End Date for simulated commits.", "error");
-                return;
-            }
-            if (!mainFilePath) {
-                showStatusMessage("Please enter a File Path in 'Main Controls' for historic commits.", "error");
-                return;
-            }
-            if (patternType === "random" || patternType === "random-burst") {
-                if (isNaN(numCommits) || numCommits <= 0) {
-                    showStatusMessage("Please enter a valid positive number of commits for random/burst patterns.", "error");
-                    return;
-                }
-            }
-
-            const startDate = new Date(simulatedStartDateStr);
-            const endDate = new Date(simulatedEndDateStr);
-
-            if (startDate > endDate) {
-                showStatusMessage("Start Date cannot be after End Date.", "error");
-                return;
-            }
-
-            toggleLoading(true);
-            showStatusMessage(`Starting simulation of commits with '${patternType}' pattern between ${simulatedStartDateStr} and ${simulatedEndDateStr}...`, "info");
-
-            const datesToCommit = generatePatternDates(patternType, startDate, endDate, numCommits);
-            simulatedCommitDates = []; // Clear previous simulated dates
-            let successfulCommits = 0;
-
-            for (const date of datesToCommit) {
-                const formattedDate = date.toLocaleString();
-                showStatusMessage(`Simulating commit ${successfulCommits + 1}/${datesToCommit.length} for date: ${formattedDate}...`, "info");
-
-                const success = await commitToGitHub(mainFilePath, formattedDate); // Use mainFilePath
-                if (success) {
-                    successfulCommits++;
-                    simulatedCommitDates.push(date); // Store date for heatmap
-                }
-
-                await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
-            }
-
-            showStatusMessage(`Simulation complete: ${successfulCommits} out of ${datesToCommit.length} commits successful.`, successfulCommits === datesToCommit.length ? "success" : "error");
-            toggleLoading(false);
-            renderHeatmapFromSimulatedData(); // Render heatmap after simulation
-        }
-
-
-        /**
-         * Renders the heatmap visualization based on `simulatedCommitDates`.
-         */
-        function renderHeatmapFromSimulatedData() {
-            const heatmapContainer = document.getElementById("heatmapContainer");
-            heatmapContainer.innerHTML = ''; // Clear previous heatmap
-
-            if (simulatedCommitDates.length === 0) {
-                showStatusMessage("No simulated commit data to display for heatmap. Generate some commits first.", "info");
-                return;
-            }
-
-            // Aggregate dates to count commits per day
-            const data = {};
-            simulatedCommitDates.forEach(date => {
-                const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000; // Unix timestamp in seconds
-                data[timestamp] = (data[timestamp] || 0) + 1;
-            });
-
-            // Determine start and end dates for heatmap
-            const firstDate = new Date(Math.min(...simulatedCommitDates.map(d => d.getTime())));
-            const lastDate = new Date(Math.max(...simulatedCommitDates.map(d => d.getTime())));
-
-            // Ensure the heatmap covers at least a year if dates span less, or the full range
-            const now = new Date();
-            const yearAgo = new Date();
-            yearAgo.setFullYear(now.getFullYear() - 1);
-
-            const startRange = firstDate < yearAgo ? firstDate : yearAgo;
-            const endRange = lastDate > now ? lastDate : now;
-
-            const cal = new CalHeatmap();
-            cal.init({
-                itemSelector: "#heatmapContainer",
-                domain: "month",
-                subDomain: "day",
-                range: 12, // Display 12 months
-                start: new Date(endRange.getFullYear(), endRange.getMonth() - 11, 1), // Start 11 months before the end date
-                data: data,
-                legend: [1, 2, 3, 4],
-                tooltip: true,
-                displayLegend: true,
-                verticalOrientation: false,
-                label: {
-                    position: "top",
-                },
-                subDomainTitleFormat: {
-                    empty: "{date}",
-                    filled: "{count} commits on {date}"
-                },
-                cellSize: 10,
-                cellPadding: 2,
-                colLimit: 13,
-                animationDuration: 500,
-                // colors: {
-                //     min: "#ebedf0",
-                //     max: "#216e39",
-                //     empty: "#ebedf0",
-                //     type: "linear",
-                //     scheme: "greens"
-                // }
-            });
-            showStatusMessage("Simulated heatmap preview updated.", "info");
-        }
-
-        /**
-         * Fetches real GitHub contribution events and renders them as a heatmap.
-         */
-        async function loadRealContributionHeatmap() {
-            const token = localStorage.getItem('gh_token_oauth') || document.getElementById("token").value.trim();
-            const username = document.getElementById("username").value.trim();
-            const realHeatmapContainer = document.getElementById("realHeatmapContainer");
-            realHeatmapContainer.innerHTML = ''; // Clear previous heatmap
-
-            if (!token || !username) {
-                showStatusMessage("Please enter your GitHub Token and Username to load real heatmap.", "error");
-                return;
-            }
-
-            toggleLoading(true);
-            showStatusMessage(`Fetching real GitHub events for ${username}... This might take a moment.`, "info");
-
-            const headers = {
-                "Authorization": `token ${token}`,
-                "Accept": "application/vnd.github.v3+json"
-            };
-
-            const realContributionData = {};
-            let page = 1;
-            const maxPages = 5; // Fetch up to 5 pages to get recent history (max 100 events/page)
-            let hasMoreEvents = true;
-
-            try {
-                while (page <= maxPages && hasMoreEvents) {
-                    const res = await fetch(`https://api.github.com/users/${username}/events?page=${page}&per_page=100`, { headers });
-                    if (!res.ok) {
-                        const errorData = await res.json();
-                        // Enhanced error message for rate limits
-                        if (res.status === 403 && errorData.message && errorData.message.includes('API rate limit exceeded')) {
-                            throw new Error("GitHub API rate limit exceeded. Please try again after a few minutes.");
-                        }
-                        throw new Error(errorData.message || "Failed to fetch events.");
-                    }
-                    const events = await res.json();
-
-                    if (events.length === 0) {
-                        hasMoreEvents = false; // No more events to fetch
-                    } else {
-                        events.forEach(event => {
-                            const date = new Date(event.created_at);
-                            // Only count push events for a more relevant contribution graph mimic
-                            if (event.type === 'PushEvent') {
-                                const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000;
-                                realContributionData[timestamp] = (realContributionData[timestamp] || 0) + 1;
-                            }
-                        });
-                        page++;
-                    }
-                }
-
-                if (Object.keys(realContributionData).length === 0) {
-                    showStatusMessage("No public push events found for the last few months. Ensure your token has 'public_repo' or 'read:user' scope if you expect private contributions.", "info");
-                    toggleLoading(false);
-                    return;
-                }
-
-                // Determine start and end dates for heatmap based on fetched data
-                const eventDates = Object.keys(realContributionData).map(ts => new Date(parseInt(ts) * 1000));
-                const firstEventDate = new Date(Math.min(...eventDates.map(d => d.getTime())));
-                const lastEventDate = new Date(Math.max(...eventDates.map(d => d.getTime())));
-
-                // Ensure the heatmap covers at least a year or the actual range of data
-                const now = new Date();
-                const yearAgo = new Date();
-                yearAgo.setFullYear(now.getFullYear() - 1);
-
-                const startRange = firstEventDate < yearAgo ? firstEventDate : yearAgo;
-                const endRange = lastEventDate > now ? lastDate : now;
-
-                const cal = new CalHeatmap();
-                cal.init({
-                    itemSelector: "#realHeatmapContainer",
-                    domain: "month",
-                    subDomain: "day",
-                    range: 12, // Display 12 months
-                    start: new Date(endRange.getFullYear(), endRange.getMonth() - 11, 1), // Start 11 months before the end date
-                    data: realContributionData,
-                    legend: [1, 2, 3, 4],
-                    tooltip: true,
-                    displayLegend: true,
-                    verticalOrientation: false,
-                    label: {
-                        position: "top",
-                    },
-                    subDomainTitleFormat: {
-                        empty: "{date}",
-                        filled: "{count} commits on {date}"
-                    },
-                    cellSize: 10,
-                    cellPadding: 2,
-                    colLimit: 13,
-                    animationDuration: 500,
-                    // colors: {
-                    //     min: "#ebedf0",
-                    //     max: "#0e4429",
-                    //     empty: "#ebedf0",
-                    //     type: "linear",
-                    //     scheme: "darkgreen"
-                    // }
-                });
-                showStatusMessage("✅ Real GitHub heatmap loaded successfully!", "success");
-
-            } catch (error) {
-                console.error("Error loading real heatmap:", error);
-                showStatusMessage(`❌ Failed to load real heatmap: ${error.message}. Check your username and token scope.`, "error");
-            } finally {
-                toggleLoading(false);
-            }
-        }
-
-        /**
-         * Returns a random fallback commit message.
-         * @returns {string} A random commit message.
-         */
-        function getRandomFallbackMessage() {
-            const fallbackMessages = [
-                "feat: add new feature",
-                "fix: resolve bug",
-                "docs: update documentation",
-                "chore: routine maintenance",
-                "style: code formatting",
-                "refactor: improve code structure",
-                "test: add new tests",
-                "build: update dependencies",
-                "perf: optimize performance",
-                "ci: update CI config"
-            ];
-            return fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
-        }
-
-        /**
-         * Generates a smart commit message using the Gemini API based on user-provided context.
-         */
-        async function generateSmartCommitMessage() {
-            const commitContext = document.getElementById("commitContext").value.trim();
-            const contentTextArea = document.getElementById("content");
-
-            if (!commitContext) {
-                showStatusMessage("Please provide some context for the commit message.", "error");
-                return;
-            }
-
-            toggleLoading(true);
-            showStatusMessage("✨ Generating smart commit message...", "info");
-
-            try {
-                let chatHistory = [];
-                chatHistory.push({ role: "user", parts: [{ text: `Generate a concise and descriptive GitHub commit message (max 10 words, start with a conventional commit prefix like 'feat:', 'fix:', 'docs:', 'chore:') based on the following context: "${commitContext}"` }] });
-                const payload = { contents: chatHistory };
-                const apiKey = localStorage.getItem("gemini_api_key") || ""; // Read from localStorage or empty
-
-                if (!apiKey) {
-                    showStatusMessage("Gemini API Key is missing. Please provide it in local storage or environment variables.", "error");
-                    contentTextArea.value = getRandomFallbackMessage(); // Fallback
-                    toggleLoading(false);
-                    return;
-                }
-
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const result = await response.json();
-
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const generatedMessage = result.candidates[0].content.parts[0].text.trim();
-                    contentTextArea.value = generatedMessage; // Populate the content textarea
-                    showStatusMessage("✨ Smart commit message generated successfully!", "success");
-                } else {
-                    showStatusMessage("❌ Failed to generate smart commit message. Using fallback.", "error");
-                    if (window.debugMode) console.error("Gemini API response structure unexpected:", result);
-                    contentTextArea.value = getRandomFallbackMessage(); // Fallback
-                }
-            } catch (error) {
-                if (window.debugMode) console.error("Error calling Gemini API:", error);
-                showStatusMessage(`❌ Error generating smart commit message: ${error.message}. Using fallback.`, "error");
-                contentTextArea.value = getRandomFallbackMessage(); // Fallback
-            } finally {
-                toggleLoading(false);
-            }
-        }
-
-
-        // Event Listeners for saving settings on input/change
-        document.getElementById("token").addEventListener("input", saveSettingsToStorage);
-        // Added event listener for new Gemini API Key input
-        document.getElementById("geminiApiKey").addEventListener("input", saveSettingsToStorage);
-        document.getElementById("username").addEventListener("input", saveSettingsToStorage);
-        document.getElementById("repo").addEventListener("change", () => {
-            saveSettingsToStorage();
-            loadRepoBranches(); // Load branches when repo changes
-        });
-        document.getElementById("branch").addEventListener("change", saveSettingsToStorage);
-        document.getElementById("filepath").addEventListener("input", saveSettingsToStorage);
-        document.getElementById("content").addEventListener("input", saveSettingsToStorage);
-        document.getElementById("intervalValue").addEventListener("input", saveSettingsToStorage);
-        document.getElementById("intervalType").addEventListener("change", saveSettingsToStorage);
-        document.getElementById("numSimulatedCommits").addEventListener("input", saveSettingsToStorage);
-        document.getElementById("simulatedStartDate").addEventListener("change", saveSettingsToStorage);
-        document.getElementById("simulatedEndDate").addEventListener("change", saveSettingsToStorage);
-        document.getElementById("streakPatternSelect").addEventListener("change", () => {
-            saveSettingsToStorage();
-            // Toggle visibility of numCommitsContainer based on selected pattern
-            const patternType = document.getElementById("streakPatternSelect").value;
-            const numCommitsContainer = document.getElementById("numCommitsContainer");
-            if (patternType === "random" || patternType === "random-burst") {
-                numCommitsContainer.style.display = 'block';
-            } else {
-                numCommitsContainer.style.display = 'none';
-            }
-        });
-        document.getElementById("commitContext").addEventListener("input", saveSettingsToStorage);
-        document.getElementById("loadRealHeatmapButton").addEventListener("click", loadRealContributionHeatmap);
-        document.getElementById("generateMessageButton").addEventListener("click", generateSmartCommitMessage);
-        document.getElementById("generateSimulatedCommitsButton").addEventListener("click", generateSimulatedCommits);
-        document.getElementById("darkModeToggle").addEventListener("change", () => {
-            document.documentElement.classList.toggle("dark");
-            saveSettingsToStorage(); // Save dark mode preference
-        });
-        document.getElementById("resetStatsButton").addEventListener("click", resetStats);
-
-        // --- GitHub OAuth Frontend Logic ---
-        document.getElementById('githubLogin').addEventListener('click', () => {
-            // Redirect to GitHub's authorization page
-            window.location.href =
-                `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo%20read:user&redirect_uri=${GITHUB_REDIRECT_URI}`;
-        });
-
-        document.getElementById('githubLogout').addEventListener('click', () => {
-            // Clear OAuth related data from localStorage
-            localStorage.removeItem('gh_token_oauth');
-            localStorage.removeItem('gh_user_oauth');
-            localStorage.removeItem('gh_username'); // Clear username as it might have come from OAuth
-            document.getElementById("token").value = ''; // Clear PAT input
-            document.getElementById("username").value = ''; // Clear username input
-
-            // Re-enable manual PAT input and hide user info
-            document.getElementById("token").disabled = false;
-            document.getElementById("githubLogin").classList.remove('hidden');
-            document.getElementById("loggedInUser").classList.add('hidden');
-            document.getElementById("userAvatar").src = '';
-            document.getElementById("userName").textContent = '';
-
-            showStatusMessage("Logged out from GitHub.", "info");
-            loadUserRepos(); // Reload repos (will show "Enter Token and Username")
-        });
-
-        // On load: handle redirect back from GitHub after OAuth
-        window.addEventListener('DOMContentLoaded', async () => {
-            const params = new URLSearchParams(window.location.search);
-            const code = params.get('code');
-            // The `oauth_callback` parameter is no longer needed on the frontend,
-            // as the backend handles the initial redirect from GitHub.
-            // const isOAuthCallback = params.get('oauth_callback');
-
-            // The backend serverless function will redirect to the root path with token/user info
-            // if it successfully gets them. So, we check for 'token' and 'user' in the URL.
-            const accessTokenFromBackend = params.get('access_token');
-            const userLoginFromBackend = params.get('user_login');
-            const userAvatarFromBackend = params.get('user_avatar');
-
-            if (accessTokenFromBackend && userLoginFromBackend) {
-                showStatusMessage("Processing GitHub login...", "info");
-                toggleLoading(true);
-
-                try {
-                    localStorage.setItem('gh_token_oauth', accessTokenFromBackend); // Store OAuth token
-                    localStorage.setItem('gh_user_oauth', JSON.stringify({
-                        login: userLoginFromBackend,
-                        avatar_url: userAvatarFromBackend
-                    })); // Store user info
-
-                    // Update UI with logged-in user info
-                    document.getElementById("token").value = accessTokenFromBackend;
-                    document.getElementById("token").disabled = true; // Disable manual input
-                    document.getElementById("username").value = userLoginFromBackend; // Set username from OAuth
-                    document.getElementById("githubLogin").classList.add('hidden'); // Hide login button
-                    document.getElementById("loggedInUser").classList.remove('hidden'); // Show user info
-                    document.getElementById("userAvatar").src = userAvatarFromBackend;
-                    document.getElementById("userName").textContent = userLoginFromBackend;
-
-                    showStatusMessage(`✅ Welcome, ${userLoginFromBackend}! GitHub login successful.`, "success");
-                    loadUserRepos(); // Automatically load repos for the authenticated user
-
-                    // Clean the URL by redirecting to the base path
-                    window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
-                } catch (error) {
-                    console.error('Error during OAuth callback processing:', error);
-                    showStatusMessage(`❌ Error during GitHub OAuth processing: ${error.message}. Please try again.`, "error");
-                    document.getElementById("token").disabled = false; // Re-enable manual input
-                    document.getElementById("githubLogin").classList.remove('hidden');
-                    document.getElementById("loggedInUser").classList.add('hidden');
-                } finally {
-                    toggleLoading(false);
-                }
-            } else if (code) { // This block handles the case where the backend might not redirect correctly
-                showStatusMessage("Exchanging GitHub code for access token (fallback)...", "info");
-                toggleLoading(true);
-
-                try {
-                    // Call your Vercel Serverless Function to exchange the code
-                    const res = await fetch(`/api/github-auth?code=${code}`);
-                    const data = await res.json();
-
-                    if (data.access_token) {
-                        localStorage.setItem('gh_token_oauth', data.access_token); // Store OAuth token
-                        localStorage.setItem('gh_user_oauth', JSON.stringify(data.user)); // Store user info
-
-                        // Update UI with logged-in user info
-                        document.getElementById("token").value = data.access_token;
-                        document.getElementById("token").disabled = true; // Disable manual input
-                        document.getElementById("username").value = data.user.login; // Set username from OAuth
-                        document.getElementById("githubLogin").classList.add('hidden'); // Hide login button
-                        document.getElementById("loggedInUser").classList.remove('hidden'); // Show user info
-                        document.getElementById("userAvatar").src = data.user.avatar_url;
-                        document.getElementById("userName").textContent = data.user.login;
-
-                        showStatusMessage(`✅ Welcome, ${data.user.login}! GitHub login successful.`, "success");
-                        loadUserRepos(); // Automatically load repos for the authenticated user
-
-                        // Clean the URL by redirecting to the base path
-                        window.history.replaceState({}, document.title, window.location.origin + window.location.pathname);
-                    } else {
-                        showStatusMessage(`❌ GitHub OAuth failed: ${data.error || 'Unknown error.'}`, "error");
-                        document.getElementById("token").disabled = false; // Re-enable manual input
-                        document.getElementById("githubLogin").classList.remove('hidden');
-                        document.getElementById("loggedInUser").classList.add('hidden');
-                    }
-                } catch (error) {
-                    console.error('Error during OAuth callback:', error);
-                    showStatusMessage(`❌ Error during GitHub OAuth: ${error.message}. Please try again.`, "error");
-                    document.getElementById("token").disabled = false; // Re-enable manual input
-                    document.getElementById("githubLogin").classList.remove('hidden');
-                    document.getElementById("loggedInUser").classList.add('hidden');
-                } finally {
-                    toggleLoading(false);
-                }
-            }
-        });
-        // --- End GitHub OAuth Frontend Logic ---
-
-
-        // Tab switching logic
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.addEventListener('click', async () => { // Made async to await fetch for guide
-                const tabId = button.dataset.tab;
-
-                // Deactivate all tab buttons and content
-                document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-                // Activate the clicked tab button and content
-                button.classList.add('active');
-                const activeTabContent = document.getElementById(tabId);
-                activeTabContent.classList.add('active');
-
-                // If switching to heatmaps tab, automatically load real heatmap if username is present
-                if (tabId === 'heatmaps' && document.getElementById('username').value.trim() !== '') {
-                    loadRealContributionHeatmap();
-                }
-                // If switching to stats tab, update display
-                if (tabId === 'stats') {
-                    updateStatsDisplay();
-                }
-                // NEW: If switching to user-guide tab, load content dynamically
-                if (tabId === 'user-guide') {
-                    const userGuideContentWrapper = document.getElementById('user-guide-content-wrapper');
-                    userGuideContentWrapper.innerHTML = '<p class="text-center text-gray-500 dark:text-gray-400">Loading User Guide...</p>'; // Show loading message
-
-                    try {
-                        const response = await fetch('guide.html');
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        const html = await response.text();
-                        // Parse the HTML string to extract the relevant content
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html');
-                        // Assuming the main content is within a div with class 'main-content-wrapper'
-                        const mainContent = doc.querySelector('.main-content-wrapper');
-
-                        if (mainContent) {
-                            userGuideContentWrapper.innerHTML = mainContent.innerHTML;
-
-                            // Re-apply dark mode to the loaded content
-                            if (document.documentElement.classList.contains("dark")) {
-                                userGuideContentWrapper.querySelectorAll('*').forEach(el => {
-                                    if (el.classList.contains('bg-white')) el.classList.add('dark:bg-gray-700');
-                                    if (el.classList.contains('text-gray-800')) el.classList.add('dark:text-white');
-                                    if (el.classList.contains('text-gray-700')) el.classList.add('dark:text-gray-300');
-                                    if (el.classList.contains('text-gray-600')) el.classList.add('dark:text-gray-400');
-                                    if (el.classList.contains('bg-gray-100')) el.classList.add('dark:bg-gray-700');
-                                    if (el.classList.contains('border-gray-200')) el.classList.add('dark:border-gray-600');
-                                    if (el.classList.contains('bg-gray-50')) el.classList.add('dark:bg-gray-700');
-                                    // Add more specific dark mode class toggles if needed for nested elements
-                                });
-                            }
-
-                            // Re-attach event listeners for the dynamically loaded sidebar and buttons
-                            userGuideContentWrapper.querySelectorAll('.menu-button-guide').forEach(btn => {
-                                btn.onclick = () => {
-                                    const sidebar = userGuideContentWrapper.querySelector('.sidebar-container');
-                                    const overlay = userGuideContentWrapper.querySelector('.overlay-guide');
-                                    if (sidebar && overlay) {
-                                        sidebar.classList.toggle('active');
-                                        overlay.classList.toggle('active');
-                                    }
-                                };
-                            });
-                            userGuideContentWrapper.querySelectorAll('.sidebar-container a').forEach(link => {
-                                link.addEventListener('click', () => {
-                                    if (window.innerWidth <= 768) {
-                                        const sidebar = userGuideContentWrapper.querySelector('.sidebar-container');
-                                        const overlay = userGuideContentWrapper.querySelector('.overlay-guide');
-                                        if (sidebar && overlay) {
-                                            sidebar.classList.remove('active');
-                                            overlay.classList.remove('active');
-                                        }
-                                    }
-                                });
-                            });
-                            // Re-attach download PDF function
-                            userGuideContentWrapper.querySelectorAll('button[onclick="downloadPDF()"]').forEach(btn => {
-                                btn.onclick = downloadPDF;
-                            });
-
-                            // Smooth scroll polyfill for iOS Safari
-                            // This polyfill is usually for window.scroll, but for internal anchor links,
-                            // the browser handles it. If issues persist, a more robust polyfill might be needed.
-                            // For now, ensure the CSS scroll-smooth property is sufficient.
-
-                        } else {
-                            userGuideContentWrapper.innerHTML = '<p class="text-center text-red-500 dark:text-red-400">Failed to load user guide content.</p>';
-                        }
-                    } catch (error) {
-                        console.error('Error loading user guide:', error);
-                        userGuideContentWrapper.innerHTML = '<p class="text-center text-red-500 dark:text-red-400">Error loading user guide. Please try again later.</p>';
-                    }
-                }
-            });
-        });
-
-
-        // Initial setup on window load
-        window.onload = () => {
-            loadSettingsFromStorage();
-            // Load repos after token and username might have been loaded from storage
-            // Add a small delay to ensure inputs are populated if from storage
-            setTimeout(loadUserRepos, 100);
-            // Activate the first tab by default
-            document.querySelector('.tab-button[data-tab="main-controls"]').click();
-
-            // Initial state for numCommitsContainer based on loaded pattern
-            const patternType = document.getElementById("streakPatternSelect").value;
-            const numCommitsContainer = document.getElementById("numCommitsContainer");
-            if (patternType === "random" || patternType === "random-burst") {
-                numCommitsContainer.style.display = 'block';
-            } else {
-                numCommitsContainer.style.display = 'none';
-            }
-            updateStatsDisplay(); // Initial update of stats display
-        };
-
-        // Service Worker Registration
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function () {
-                navigator.serviceWorker.register('service-worker.js')
-                    .then(reg => console.log('✅ Service Worker registered'))
-                    .catch(err => console.warn('❌ Service Worker registration failed', err));
-            });
-        }
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
