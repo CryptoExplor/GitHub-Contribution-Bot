@@ -1,109 +1,248 @@
-// api/github-auth.js
-// This file handles the server-side logic for GitHub OAuth.
-// It exchanges the authorization code received from GitHub for an access token,
-// then redirects the user back to the frontend with the token.
+// ===================================
+// SECURE GITHUB OAUTH HANDLER
+// Vercel Serverless Function
+// ===================================
 
-import axios from 'axios'; // Import axios for making HTTP requests
+import axios from 'axios';
+import crypto from 'crypto';
 
-// The default export function serves as the entry point for the Vercel Serverless Function.
-export default async function handler(req, res) {
-  // --- START: Temporary Debugging Ping ---
-  // This is a temporary response to check if the function is even being invoked successfully.
-  // If you deploy this and can access your Vercel function URL (e.g., https://your-app.vercel.app/api/github-auth)
-  // and see "Function is alive!", then the issue is within the OAuth logic below.
-  // If you still get a 500 error, the problem is with Vercel's environment setup or basic file parsing.
-  // return res.status(200).send("Function is alive!");
-  // --- END: Temporary Debugging Ping ---
+// In-memory rate limiting (use Redis in production)
+const rateLimitStore = new Map();
 
+// Helper: Rate Limiter
+function checkRateLimit(clientIp) {
+    const now = Date.now();
+    const windowMs = 3600000; // 1 hour
+    const maxRequests = 10; // 10 OAuth requests per hour per IP
 
-  // Extract the 'code' from the query parameters. This code is provided by GitHub
-  // after the user authorizes your application.
-  const { code } = req.query;
-
-  // Retrieve GitHub Client ID and Client Secret from environment variables.
-  // These should be configured in your Vercel project settings.
-  const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
-  const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
-
-  // --- Start: Enhanced Environment Variable Check ---
-  // If environment variables are not defined, return a 500 error immediately.
-  // This helps diagnose if the function is crashing due to missing configuration.
-  if (!GITHUB_CLIENT_ID) {
-    console.error("Serverless Function Error: GITHUB_CLIENT_ID is not defined in Vercel environment variables.");
-    return res.status(500).send("Server Configuration Error: GITHUB_CLIENT_ID is missing.");
-  }
-  if (!GITHUB_CLIENT_SECRET) {
-    console.error("Serverless Function Error: GITHUB_CLIENT_SECRET is not defined in Vercel environment variables.");
-    return res.status(500).send("Server Configuration Error: GITHUB_CLIENT_SECRET is missing.");
-  }
-  // --- End: Enhanced Environment Variable Check ---
-
-  // If no code is provided, redirect back to the frontend with an error message.
-  // This scenario typically happens if the user cancels the OAuth flow or there's a misdirection.
-  if (!code) {
-    console.warn("OAuth Callback: No 'code' parameter provided in the redirect from GitHub.");
-    return res.redirect(`/?oauth_error=no_code_provided`);
-  }
-
-  try {
-    console.log("Serverless Function: Attempting to exchange GitHub code for access token...");
-    // Log the presence of Client ID (without revealing the actual value for security)
-    console.log(`Serverless Function: GITHUB_CLIENT_ID is ${GITHUB_CLIENT_ID ? 'present' : 'missing'}.`);
-
-    // Step 1: Exchange the authorization code for an access token.
-    // This is a POST request to GitHub's access token endpoint.
-    const tokenRes = await axios.post('https://github.com/login/oauth/access_token', {
-      client_id: GITHUB_CLIENT_ID,       // Your GitHub OAuth App's Client ID
-      client_secret: GITHUB_CLIENT_SECRET, // Your GitHub OAuth App's Client Secret
-      code: code                          // The authorization code received from GitHub
-    }, {
-      // Important: Tell GitHub you want a JSON response.
-      headers: { Accept: 'application/json' }
-    });
-
-    // Extract the access token from the response.
-    const access_token = tokenRes.data.access_token;
-
-    // If no access token is received, redirect with an error.
-    if (!access_token) {
-      console.error("Serverless Function: Failed to retrieve access token from GitHub. Response data:", tokenRes.data);
-      return res.redirect(`/?oauth_error=no_access_token_received`);
+    if (!rateLimitStore.has(clientIp)) {
+        rateLimitStore.set(clientIp, []);
     }
 
-    console.log("Serverless Function: Access token received. Fetching user info...");
-    // Step 2: Fetch user information using the access token.
-    // This verifies the token and gets the authenticated user's details.
-    const userRes = await axios.get('https://api.github.com/user', {
-      headers: { Authorization: `token ${access_token}` } // Use the access token for authorization
-    });
-
-    const user = userRes.data;
-    console.log(`Serverless Function: User info fetched for: ${user.login}`);
-
-    // Step 3: Redirect back to the frontend (your main application page)
-    // Pass the access token and relevant user info as query parameters.
-    // The frontend will then pick these up and store them in localStorage.
-    const frontendRedirectUrl = `/?access_token=${access_token}&user_login=${user.login}&user_avatar=${encodeURIComponent(user.avatar_url)}`;
-    console.log(`Serverless Function: Redirecting to frontend: ${frontendRedirectUrl}`);
-    return res.redirect(frontendRedirectUrl);
-
-  } catch (e) {
-    // Log the error for debugging purposes on the server.
-    console.error('Serverless Function: GitHub OAuth process failed within try/catch block.');
-
-    // Provide more specific error details based on the type of error.
-    if (e.response) {
-      // This means Axios received an error response from the GitHub API (e.g., 400, 401, 403).
-      console.error('GitHub API response error Status:', e.response.status, 'Data:', e.response.data);
-      return res.redirect(`/?oauth_error=github_api_error&status=${e.response.status}&details=${encodeURIComponent(e.response.data.error || e.response.data.message || 'Unknown GitHub API error')}`);
-    } else if (e.request) {
-      // This means the request was made but no response was received (e.g., network timeout).
-      console.error('Network error during GitHub API call:', e.message);
-      return res.redirect(`/?oauth_error=network_error&details=${encodeURIComponent(e.message)}`);
-    } else {
-      // Other unexpected errors (e.g., syntax error, variable not defined).
-      console.error('Unexpected error during OAuth process:', e.message);
-      return res.status(500).send(`Internal Server Error during OAuth: ${e.message}`);
+    const requests = rateLimitStore.get(clientIp);
+    const validRequests = requests.filter(timestamp => now - timestamp < windowMs);
+    
+    if (validRequests.length >= maxRequests) {
+        const oldestRequest = validRequests[0];
+        const waitTime = windowMs - (now - oldestRequest);
+        return {
+            allowed: false,
+            waitMs: waitTime,
+            remaining: 0
+        };
     }
-  }
+
+    validRequests.push(now);
+    rateLimitStore.set(clientIp, validRequests);
+    
+    return {
+        allowed: true,
+        remaining: maxRequests - validRequests.length
+    };
 }
+
+// Helper: Clean expired rate limit entries
+function cleanupRateLimitStore() {
+    const now = Date.now();
+    const windowMs = 3600000;
+    
+    for (const [ip, requests] of rateLimitStore.entries()) {
+        const validRequests = requests.filter(timestamp => now - timestamp < windowMs);
+        if (validRequests.length === 0) {
+            rateLimitStore.delete(ip);
+        } else {
+            rateLimitStore.set(ip, validRequests);
+        }
+    }
+}
+
+// Cleanup every 10 minutes
+setInterval(cleanupRateLimitStore, 600000);
+
+// Helper: Sanitize redirect URL
+function sanitizeRedirectUrl(url) {
+    try {
+        const parsedUrl = new URL(url);
+        // Only allow same origin redirects
+        if (parsedUrl.origin !== process.env.VERCEL_URL && 
+            parsedUrl.origin !== `https://${process.env.VERCEL_URL}`) {
+            return '/';
+        }
+        return url;
+    } catch (e) {
+        return '/';
+    }
+}
+
+// Main Handler
+export default async function handler(req, res) {
+    // ===== Security Headers =====
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+    // ===== Method Validation =====
+    if (req.method !== 'GET') {
+        return res.status(405).json({ 
+            error: 'Method not allowed',
+            allowedMethods: ['GET']
+        });
+    }
+
+    // ===== Get Client IP =====
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                     req.headers['x-real-ip'] || 
+                     req.connection?.remoteAddress || 
+                     'unknown';
+
+    console.log(`[OAuth] Request from IP: ${clientIp}`);
+
+    // ===== Rate Limiting =====
+    const rateLimitCheck = checkRateLimit(clientIp);
+    
+    if (!rateLimitCheck.allowed) {
+        const waitMinutes = Math.ceil(rateLimitCheck.waitMs / 60000);
+        console.warn(`[OAuth] Rate limit exceeded for IP: ${clientIp}`);
+        return res.status(429).json({
+            error: 'Too many requests',
+            message: `Rate limit exceeded. Please try again in ${waitMinutes} minutes.`,
+            retryAfter: waitMinutes * 60
+        });
+    }
+
+    res.setHeader('X-RateLimit-Limit', '10');
+    res.setHeader('X-RateLimit-Remaining', rateLimitCheck.remaining.toString());
+
+    // ===== Extract Parameters =====
+    const { code, state } = req.query;
+
+    // ===== Validate Code Parameter =====
+    if (!code) {
+        console.warn('[OAuth] No code parameter provided');
+        return res.redirect('/?oauth_error=no_code');
+    }
+
+    // ===== Environment Variables Check =====
+    const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
+    const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
+
+    if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+        console.error('[OAuth] Missing environment variables');
+        return res.status(500).json({
+            error: 'Server configuration error',
+            message: 'GitHub OAuth credentials not configured'
+        });
+    }
+
+    // ===== State Parameter Validation (CSRF Protection) =====
+    // In production, implement proper state validation
+    // For now, we log if state is missing
+    if (!state) {
+        console.warn('[OAuth] No state parameter (CSRF risk)');
+    }
+
+    try {
+        console.log('[OAuth] Exchanging code for access token...');
+
+        // ===== Exchange Code for Token =====
+        const tokenRes = await axios.post(
+            'https://github.com/login/oauth/access_token',
+            {
+                client_id: GITHUB_CLIENT_ID,
+                client_secret: GITHUB_CLIENT_SECRET,
+                code: code
+            },
+            {
+                headers: { 
+                    Accept: 'application/json',
+                    'User-Agent': 'GitHub-Contribution-Bot/2.0'
+                },
+                timeout: 10000 // 10 second timeout
+            }
+        );
+
+        const access_token = tokenRes.data.access_token;
+
+        // ===== Validate Token =====
+        if (!access_token) {
+            console.error('[OAuth] No access token in response:', tokenRes.data);
+            return res.redirect('/?oauth_error=no_token&details=' + encodeURIComponent(tokenRes.data.error_description || 'Unknown error'));
+        }
+
+        console.log('[OAuth] Access token received, fetching user info...');
+
+        // ===== Fetch User Information =====
+        const userRes = await axios.get('https://api.github.com/user', {
+            headers: { 
+                Authorization: `token ${access_token}`,
+                'User-Agent': 'GitHub-Contribution-Bot/2.0'
+            },
+            timeout: 10000
+        });
+
+        const user = userRes.data;
+
+        // ===== Validate User Data =====
+        if (!user || !user.login) {
+            console.error('[OAuth] Invalid user data:', user);
+            return res.redirect('/?oauth_error=invalid_user');
+        }
+
+        console.log(`[OAuth] User authenticated: ${user.login}`);
+
+        // ===== Sanitize User Data =====
+        const sanitizedLogin = encodeURIComponent(user.login);
+        const sanitizedAvatar = encodeURIComponent(user.avatar_url || '');
+
+        // ===== Construct Redirect URL =====
+        const redirectUrl = `/?access_token=${access_token}&user_login=${sanitizedLogin}&user_avatar=${sanitizedAvatar}`;
+        
+        console.log('[OAuth] Redirecting to frontend...');
+
+        // ===== Successful Redirect =====
+        return res.redirect(redirectUrl);
+
+    } catch (e) {
+        console.error('[OAuth] Error during OAuth flow:', e.message);
+
+        // ===== Error Handling =====
+        if (e.code === 'ECONNABORTED') {
+            return res.redirect('/?oauth_error=timeout&details=' + encodeURIComponent('Request timed out. Please try again.'));
+        }
+
+        if (e.response) {
+            // GitHub API returned an error
+            const status = e.response.status;
+            const errorMessage = e.response.data?.message || e.response.data?.error || 'Unknown error';
+            
+            console.error(`[OAuth] GitHub API error ${status}:`, errorMessage);
+
+            if (status === 401) {
+                return res.redirect('/?oauth_error=unauthorized&details=' + encodeURIComponent('Invalid credentials'));
+            } else if (status === 403) {
+                return res.redirect('/?oauth_error=forbidden&details=' + encodeURIComponent('Access denied or rate limit exceeded'));
+            } else if (status === 404) {
+                return res.redirect('/?oauth_error=not_found&details=' + encodeURIComponent('Resource not found'));
+            } else {
+                return res.redirect(`/?oauth_error=github_api_error&status=${status}&details=` + encodeURIComponent(errorMessage));
+            }
+        } else if (e.request) {
+            // Request was made but no response
+            console.error('[OAuth] Network error:', e.message);
+            return res.redirect('/?oauth_error=network_error&details=' + encodeURIComponent('Network error. Check your connection.'));
+        } else {
+            // Other errors
+            console.error('[OAuth] Unexpected error:', e.message);
+            return res.redirect('/?oauth_error=server_error&details=' + encodeURIComponent(e.message));
+        }
+    }
+}
+
+// ===== Export for Vercel =====
+export const config = {
+    api: {
+        bodyParser: false,
+        externalResolver: true,
+    },
+};
