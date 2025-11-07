@@ -1,12 +1,13 @@
 {
   "name": "github-contribution-bot",
-  "version": "2.0.0",
-  "description": "A secure, browser-based GitHub Auto Commit Bot with OAuth authentication and spam prevention",
+  "version": "3.0.0",
+  "description": "Ultra spam-proof, secure GitHub Auto Commit Bot with OAuth authentication and advanced anti-detection",
   "type": "module",
   "scripts": {
     "dev": "vercel dev",
-    "build": "",
-    "deploy": "vercel --prod"
+    "build": "echo 'No build step required'",
+    "deploy": "vercel --prod",
+    "test": "echo 'Tests not yet implemented'"
   },
   "keywords": [
     "github",
@@ -17,7 +18,10 @@
     "serverless",
     "contribution-graph",
     "commits",
-    "pwa"
+    "pwa",
+    "rate-limiting",
+    "spam-prevention",
+    "anti-detection"
   ],
   "author": "CryptoExplor & FarmLabs",
   "license": "MIT",
@@ -30,12 +34,36 @@
     "url": "https://github.com/CryptoExplor/GitHub-Contribution-Bot/issues"
   },
   "dependencies": {
-    "axios": "^1.7.0"
+    "axios": "^1.7.7"
   },
   "devDependencies": {
-    "vercel": "^33.0.0"
+    "vercel": "^37.0.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "vercel": {
+    "version": 2,
+    "builds": [
+      {
+        "src": "api/**/*.js",
+        "use": "@vercel/node"
+      },
+      {
+        "src": "*.{html,js,json,css}",
+        "use": "@vercel/static"
+      }
+    ],
+    "routes": [
+      {
+        "src": "/api/(.*)",
+        "dest": "/api/$1"
+      },
+      {
+        "src": "/(.*)",
+        "dest": "/$1"
+      }
+    ]
   }
 }
