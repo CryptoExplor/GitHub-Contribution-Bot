@@ -1,28 +1,28 @@
 {
   "version": 2,
-  "buildCommand": "echo 'Static site - no build needed'",
-  "outputDirectory": ".",
-  "installCommand": "npm install",
-  "framework": null,
   "builds": [
     {
-      "src": "api/**/*.js",
+      "src": "api/github-auth.js",
       "use": "@vercel/node"
     },
     {
-      "src": "**/*.html",
+      "src": "index.html",
       "use": "@vercel/static"
     },
     {
-      "src": "**/*.js",
+      "src": "app.js",
       "use": "@vercel/static"
     },
     {
-      "src": "**/*.json",
+      "src": "service-worker.js",
       "use": "@vercel/static"
     },
     {
-      "src": "**/*.css",
+      "src": "guide.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "manifest.json",
       "use": "@vercel/static"
     }
   ],
@@ -35,7 +35,8 @@
       "src": "/service-worker.js",
       "dest": "/service-worker.js",
       "headers": {
-        "Service-Worker-Allowed": "/"
+        "Service-Worker-Allowed": "/",
+        "Cache-Control": "public, max-age=0, must-revalidate"
       }
     },
     {
@@ -56,48 +57,6 @@
     {
       "src": "/",
       "dest": "/index.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/service-worker.js",
-      "headers": [
-        {
-          "key": "Service-Worker-Allowed",
-          "value": "/"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
-      ]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
     }
   ]
 }
