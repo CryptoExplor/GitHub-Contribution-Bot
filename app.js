@@ -1,11 +1,10 @@
 // ===================================
 // SECURE GITHUB AUTO COMMIT BOT
-// Version 2.0 - Spam-Proof Edition
+// Version 3.0 - Ultra Spam-Proof Edition
 // ===================================
 
-// ============= SECURITY CLASSES =============
+// ============= ENHANCED SECURITY CLASSES =============
 
-// Token Encryption Manager
 class TokenManager {
     static getKey() {
         return 'ghbot-secure-' + navigator.userAgent.slice(0, 20);
@@ -49,13 +48,14 @@ class TokenManager {
     }
 }
 
-// Rate Limiter Class
+// Enhanced Rate Limiter with Exponential Backoff
 class RateLimiter {
     constructor(maxRequests = 60, windowMs = 3600000, name = 'default') {
         this.maxRequests = maxRequests;
         this.windowMs = windowMs;
         this.name = name;
         this.requests = this.loadFromStorage();
+        this.backoffMultiplier = 1;
     }
 
     loadFromStorage() {
@@ -73,10 +73,12 @@ class RateLimiter {
         
         if (this.requests.length >= this.maxRequests) {
             const oldestRequest = this.requests[0];
-            const waitTime = this.windowMs - (now - oldestRequest);
+            const waitTime = (this.windowMs - (now - oldestRequest)) * this.backoffMultiplier;
+            this.backoffMultiplier = Math.min(this.backoffMultiplier * 1.5, 5);
             return { allowed: false, waitMs: waitTime };
         }
         
+        this.backoffMultiplier = Math.max(this.backoffMultiplier * 0.9, 1);
         this.requests.push(now);
         this.saveToStorage();
         return { allowed: true };
@@ -90,15 +92,16 @@ class RateLimiter {
 
     reset() {
         this.requests = [];
+        this.backoffMultiplier = 1;
         this.saveToStorage();
     }
 }
 
-// Activity Monitor Class
+// Enhanced Activity Monitor with Pattern Analysis
 class ActivityMonitor {
     constructor() {
         this.commitTimes = [];
-        this.maxHistorySize = 100;
+        this.maxHistorySize = 200;
         this.loadFromStorage();
     }
 
@@ -124,16 +127,16 @@ class ActivityMonitor {
         ) / intervals.length;
         const stdDev = Math.sqrt(variance);
 
-        // Check for too-regular intervals
+        // Enhanced pattern detection
         if (stdDev < avgInterval * 0.1 && this.commitTimes.length > 20) {
             return {
                 suspicious: true,
-                reason: 'Intervals too regular (robot-like pattern)',
-                recommendation: 'Enable Safe Mode for more natural timing'
+                reason: 'Too regular intervals detected (robot-like)',
+                recommendation: 'Enable Safe Mode for natural timing'
             };
         }
 
-        // Check for burst activity
+        // Burst detection with sliding window
         const recentCommits = this.commitTimes.filter(t => 
             Date.now() - t < 3600000
         ).length;
@@ -141,8 +144,19 @@ class ActivityMonitor {
         if (recentCommits > 15) {
             return {
                 suspicious: true,
-                reason: 'Too many commits in short time (15+ in 1 hour)',
-                recommendation: 'Slow down to avoid spam detection'
+                reason: `Burst detected: ${recentCommits} commits in 1 hour`,
+                recommendation: 'Reduce commit frequency immediately'
+            };
+        }
+
+        // Time-of-day analysis
+        const hours = this.commitTimes.map(t => new Date(t).getHours());
+        const nightCommits = hours.filter(h => h >= 23 || h < 6).length;
+        if (nightCommits / hours.length > 0.7 && hours.length > 30) {
+            return {
+                suspicious: true,
+                reason: 'Unusual activity hours (70%+ at night)',
+                recommendation: 'Vary commit times throughout the day'
             };
         }
 
@@ -164,21 +178,59 @@ class ActivityMonitor {
     }
 }
 
+// Request Queue with Retry Logic
+class RequestQueue {
+    constructor() {
+        this.queue = [];
+        this.processing = false;
+        this.maxRetries = 3;
+    }
+
+    async add(requestFn, retries = 0) {
+        return new Promise((resolve, reject) => {
+            this.queue.push({ requestFn, retries, resolve, reject });
+            this.process();
+        });
+    }
+
+    async process() {
+        if (this.processing || this.queue.length === 0) return;
+        
+        this.processing = true;
+        const { requestFn, retries, resolve, reject } = this.queue.shift();
+
+        try {
+            const result = await requestFn();
+            resolve(result);
+        } catch (error) {
+            if (retries < this.maxRetries) {
+                const backoffDelay = Math.pow(2, retries) * 1000;
+                await delay(backoffDelay);
+                this.queue.unshift({ requestFn, retries: retries + 1, resolve, reject });
+            } else {
+                reject(error);
+            }
+        }
+
+        this.processing = false;
+        if (this.queue.length > 0) {
+            await delay(100);
+            this.process();
+        }
+    }
+}
+
 // ============= GLOBAL VARIABLES =============
 
-// OAuth Configuration (use environment variable in production)
 const GITHUB_CLIENT_ID = window.GITHUB_CLIENT_ID || 'Ov23lidwfr2w8brs3SjU';
 const GITHUB_REDIRECT_URI = window.location.origin + '/api/github-auth';
 
-// Rate Limiters
-const commitRateLimiter = new RateLimiter(60, 3600000, 'commits'); // 60/hour
-const apiRateLimiter = new RateLimiter(100, 3600000, 'api'); // 100/hour
-const dailyCommitLimiter = new RateLimiter(20, 86400000, 'daily'); // 20/day
-
-// Activity Monitor
+const commitRateLimiter = new RateLimiter(50, 3600000, 'commits');
+const apiRateLimiter = new RateLimiter(80, 3600000, 'api');
+const dailyCommitLimiter = new RateLimiter(15, 86400000, 'daily');
 const activityMonitor = new ActivityMonitor();
+const requestQueue = new RequestQueue();
 
-// Bot State
 let autoCommitInterval = null;
 let safeModeLoopActive = false;
 let safeModeEnabled = false;
@@ -189,25 +241,25 @@ let previewCommitDetails = {};
 let countdownInterval = null;
 let simulatedCommitDates = [];
 
-// Stats
 let totalCommits = 0;
 let safeModeCommitCount = 0;
 let firstCommitDate = null;
 let commitTimestamps = [];
 let repoCommitCounts = {};
 
-// Debug mode
 window.debugMode = false;
 
-// ============= SAFE MODE CONFIGURATION =============
+// ============= ENHANCED SAFE MODE CONFIG =============
 
 const safeModeConfig = {
-    minDelay: 30 * 60 * 1000, // 30 minutes
-    maxDelay: 180 * 60 * 1000, // 3 hours
-    skipProbability: 0.15, // 15% chance to skip
-    maxCommitsPerDay: 20,
-    quietHours: { start: 23, end: 7 }, // 11 PM - 7 AM
-    workdayBias: 0.7 // 70% commits on weekdays
+    minDelay: 45 * 60 * 1000,
+    maxDelay: 240 * 60 * 1000,
+    skipProbability: 0.2,
+    maxCommitsPerDay: 15,
+    quietHours: { start: 23, end: 7 },
+    workdayBias: 0.75,
+    burstPrevention: true,
+    naturalVariation: 0.3
 };
 
 // ============= UTILITY FUNCTIONS =============
@@ -215,7 +267,10 @@ const safeModeConfig = {
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 function jitter(base, maxJitter = 60000) {
-    return base + Math.floor(Math.random() * maxJitter);
+    const variation = safeModeConfig.naturalVariation;
+    const min = base * (1 - variation);
+    const max = base * (1 + variation);
+    return min + Math.random() * (max - min);
 }
 
 function toBase64(str) {
@@ -233,16 +288,16 @@ function getRandomFallbackMessage() {
         "docs: update documentation",
         "chore: routine maintenance",
         "style: code formatting",
-        "refactor: improve code structure",
-        "test: add new tests",
-        "build: update dependencies",
-        "perf: optimize performance",
-        "ci: update CI config"
+        "refactor: improve structure",
+        "test: add tests",
+        "build: update deps",
+        "perf: optimize",
+        "ci: update config"
     ];
     return messages[Math.floor(Math.random() * messages.length)];
 }
 
-// ============= COMMIT MESSAGE GENERATION =============
+// ============= ENHANCED COMMIT MESSAGE GENERATION =============
 
 function generateSafeCommitMessage() {
     const templates = [
@@ -257,11 +312,9 @@ function generateSafeCommitMessage() {
     const action = template.actions[Math.floor(Math.random() * template.actions.length)];
     const subject = template.subjects[Math.floor(Math.random() * template.subjects.length)];
     
-    // Occasional emoji (20% chance)
     const emojis = ["✨", "🔧", "📝", "🐛", "🚀"];
     const emoji = Math.random() < 0.2 ? emojis[Math.floor(Math.random() * emojis.length)] + " " : "";
     
-    // Occasional scope (30% chance)
     const scopes = ["api", "core", "utils", "config", "tests", "build"];
     const scope = Math.random() < 0.3 ? `(${scopes[Math.floor(Math.random() * scopes.length)]})` : "";
     
@@ -275,17 +328,14 @@ function showStatusMessage(message, type) {
     statusDiv.innerHTML = message;
     statusDiv.classList.remove('bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800', 'bg-blue-100', 'text-blue-800', 'bg-yellow-100', 'text-yellow-800', 'bg-gray-50', 'dark:bg-gray-700', 'dark:text-gray-300');
 
-    if (type === 'success') {
-        statusDiv.classList.add('bg-green-100', 'text-green-800');
-    } else if (type === 'error') {
-        statusDiv.classList.add('bg-red-100', 'text-red-800');
-    } else if (type === 'warning') {
-        statusDiv.classList.add('bg-yellow-100', 'text-yellow-800');
-    } else if (type === 'info') {
-        statusDiv.classList.add('bg-blue-100', 'text-blue-800');
-    } else {
-        statusDiv.classList.add('bg-gray-50', 'text-gray-700', 'dark:bg-gray-700', 'dark:text-gray-300');
-    }
+    const classes = {
+        success: ['bg-green-100', 'text-green-800'],
+        error: ['bg-red-100', 'text-red-800'],
+        warning: ['bg-yellow-100', 'text-yellow-800'],
+        info: ['bg-blue-100', 'text-blue-800']
+    };
+
+    statusDiv.classList.add(...(classes[type] || ['bg-gray-50', 'text-gray-700', 'dark:bg-gray-700', 'dark:text-gray-300']));
 }
 
 function toggleLoading(show) {
@@ -305,7 +355,6 @@ function toggleLoading(show) {
         if (el) el.disabled = show;
     });
 
-    // Handle token input based on OAuth
     const tokenInput = document.getElementById('token');
     if (TokenManager.getToken('gh_token_oauth')) {
         tokenInput.disabled = true;
@@ -335,7 +384,7 @@ function addActivityLog(message, isError = false) {
     }
 }
 
-// ============= STORAGE FUNCTIONS =============
+// ============= STORAGE & STATS FUNCTIONS =============
 
 function saveSettingsToStorage() {
     try {
@@ -367,7 +416,6 @@ function saveSettingsToStorage() {
         localStorage.setItem("smartRotation", document.getElementById("smartRotation").checked);
         localStorage.setItem("commitPreview", document.getElementById("commitPreviewToggle").checked);
 
-        // Save stats
         localStorage.setItem("stats_totalCommits", totalCommits);
         localStorage.setItem("stats_safeModeCommitCount", safeModeCommitCount);
         localStorage.setItem("stats_firstCommitDate", firstCommitDate);
@@ -423,7 +471,6 @@ function loadSettingsFromStorage() {
         commitPreviewEnabled = localStorage.getItem("commitPreview") === "true";
         document.getElementById("commitPreviewToggle").checked = commitPreviewEnabled;
 
-        // Load stats
         totalCommits = parseInt(localStorage.getItem("stats_totalCommits") || '0');
         safeModeCommitCount = parseInt(localStorage.getItem("stats_safeModeCommitCount") || '0');
         firstCommitDate = parseInt(localStorage.getItem("stats_firstCommitDate") || '0') || null;
@@ -434,8 +481,6 @@ function loadSettingsFromStorage() {
         console.error("Failed to load settings:", e);
     }
 }
-
-// ============= STATS FUNCTIONS =============
 
 function updateStatsDisplay() {
     document.getElementById("statsTotalCommits").textContent = totalCommits;
@@ -476,7 +521,6 @@ function updateStatsDisplay() {
     }
     document.getElementById("statsTopUsedRepo").textContent = topUsedRepo;
 
-    // Check for suspicious activity
     const analysis = activityMonitor.detectSuspiciousPattern();
     const warningDiv = document.getElementById('suspiciousActivityWarning');
     if (analysis.suspicious) {
@@ -537,7 +581,6 @@ async function loadUserRepos() {
         return;
     }
 
-    // Check API rate limit
     const apiCheck = apiRateLimiter.canMakeRequest();
     if (!apiCheck.allowed) {
         showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
@@ -551,7 +594,7 @@ async function loadUserRepos() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
 
         const res = await fetch(`https://api.github.com/user/repos?type=owner&per_page=100`, { 
             headers,
@@ -606,7 +649,6 @@ async function loadRepoBranches() {
         return;
     }
 
-    // Check API rate limit
     const apiCheck = apiRateLimiter.canMakeRequest();
     if (!apiCheck.allowed) {
         showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
@@ -620,7 +662,7 @@ async function loadRepoBranches() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
 
         const res = await fetch(`https://api.github.com/repos/${repoFullName}/branches`, {
             headers,
@@ -656,7 +698,7 @@ async function loadRepoBranches() {
     }
 }
 
-// ============= GEMINI API =============
+// ============= ENHANCED GEMINI API =============
 
 async function generateSmartCommitMessage() {
     const commitContext = document.getElementById("commitContext").value.trim();
@@ -667,7 +709,6 @@ async function generateSmartCommitMessage() {
         return;
     }
 
-    // Check API rate limit
     const apiCheck = apiRateLimiter.canMakeRequest();
     if (!apiCheck.allowed) {
         showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
@@ -685,11 +726,10 @@ async function generateSmartCommitMessage() {
             throw new Error("Gemini API Key not found");
         }
 
-        // Sanitize input
         const sanitizedContext = commitContext.slice(0, 200).replace(/[<>]/g, '');
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
 
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
@@ -734,7 +774,7 @@ async function generateSmartCommitMessage() {
     }
 }
 
-// ============= COMMIT FUNCTIONS =============
+// ============= ENHANCED COMMIT FUNCTIONS =============
 
 async function makeSingleCommit() {
     const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
@@ -752,16 +792,15 @@ async function makeSingleCommit() {
         return;
     }
 
-    // Check rate limits
     const commitCheck = commitRateLimiter.canMakeRequest();
     if (!commitCheck.allowed) {
-        showStatusMessage(`⏱️ Rate limit: ${commitRateLimiter.getRemainingRequests()}/60 commits left this hour. Wait ${Math.ceil(commitCheck.waitMs / 60000)} min`, "error");
+        showStatusMessage(`⏱️ Rate limit: ${commitRateLimiter.getRemainingRequests()}/50 commits left this hour. Wait ${Math.ceil(commitCheck.waitMs / 60000)} min`, "error");
         return;
     }
 
     const dailyCheck = dailyCommitLimiter.canMakeRequest();
     if (!dailyCheck.allowed) {
-        showStatusMessage(`⏱️ Daily limit reached (20/day). Wait ${Math.ceil(dailyCheck.waitMs / 60000)} min`, "error");
+        showStatusMessage(`⏱️ Daily limit reached (15/day). Wait ${Math.ceil(dailyCheck.waitMs / 60000)} min`, "error");
         return;
     }
 
@@ -813,7 +852,6 @@ async function commitToGitHub(targetFilePath = null, dateForMessage = null, repo
         return false;
     }
 
-    // Determine repo
     let repo;
     if (repoOverride) {
         repo = repoOverride;
@@ -852,7 +890,6 @@ async function commitToGitHub(targetFilePath = null, dateForMessage = null, repo
         commitMessage = generateSafeCommitMessage();
     }
 
-    // Check API rate limit
     const apiCheck = apiRateLimiter.canMakeRequest();
     if (!apiCheck.allowed) {
         showStatusMessage(`⏱️ API rate limit reached. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
@@ -863,7 +900,7 @@ async function commitToGitHub(targetFilePath = null, dateForMessage = null, repo
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
 
         const getRes = await fetch(`${apiUrl}?ref=${branch}`, { 
             headers,
@@ -894,7 +931,7 @@ async function commitToGitHub(targetFilePath = null, dateForMessage = null, repo
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
 
         const putRes = await fetch(apiUrl, {
             method: "PUT",
@@ -912,7 +949,6 @@ async function commitToGitHub(targetFilePath = null, dateForMessage = null, repo
             const commitRepo = repo.split('/')[1];
             const cliOutput = `[${branch} ${commitHash}] ${commitMessage}\n 1 file changed, 1 insertion(+)`;
 
-            // Update stats
             totalCommits++;
             if (isAutoCommit) {
                 safeModeCommitCount++;
@@ -1027,7 +1063,7 @@ function cancelCommitPreview() {
     }
 }
 
-// ============= AUTO COMMIT & SAFE MODE =============
+// ============= ENHANCED AUTO COMMIT & SAFE MODE =============
 
 async function toggleAutoCommit() {
     const toggleButton = document.getElementById("toggleAutoCommitButton");
@@ -1060,7 +1096,7 @@ async function toggleAutoCommit() {
             toggleButton.textContent = `Safe Mode Auto Commit ON`;
             toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
             toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
-            showStatusMessage(`✅ Safe Mode Enabled: Human-like delays, quiet hours, daily limits`, "success");
+            showStatusMessage(`✅ Safe Mode Enabled: Enhanced human-like behavior`, "success");
             safeAutoCommitLoop(selectedRepos);
         } else {
             if (isNaN(intervalValue) || intervalValue <= 0) {
@@ -1075,8 +1111,7 @@ async function toggleAutoCommit() {
                 case "days": intervalMilliseconds = intervalValue * 24 * 60 * 60 * 1000; break;
             }
 
-            // Add random variation to interval (±20%)
-            const randomVariation = 0.2;
+            const randomVariation = 0.25;
             const minInterval = intervalMilliseconds * (1 - randomVariation);
             const maxInterval = intervalMilliseconds * (1 + randomVariation);
 
@@ -1084,15 +1119,14 @@ async function toggleAutoCommit() {
                 const randomizedInterval = minInterval + Math.random() * (maxInterval - minInterval);
                 await commitToGitHub(null, null, null, null, true);
                 
-                // Schedule next with random timing
                 if (autoCommitInterval !== null) {
                     clearInterval(autoCommitInterval);
                     autoCommitInterval = setTimeout(performCommit, randomizedInterval);
                 }
             };
 
-            await performCommit(); // Initial commit
-            toggleButton.textContent = `Auto Commit ON (Every ${intervalValue} ${intervalType} ±20%)`;
+            await performCommit();
+            toggleButton.textContent = `Auto Commit ON (Every ${intervalValue} ${intervalType} ±25%)`;
             toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
             toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
             showStatusMessage(`✅ Auto Commit Enabled with randomized timing`, "success");
@@ -1109,7 +1143,6 @@ async function safeAutoCommitLoop(repos) {
         const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
         const today = now.toDateString();
 
-        // Quiet hours check
         if (hour >= safeModeConfig.quietHours.start || hour < safeModeConfig.quietHours.end) {
             const waitUntilMorning = ((safeModeConfig.quietHours.end - hour + 24) % 24) * 60 * 60 * 1000;
             addActivityLog(`😴 Quiet hours (${safeModeConfig.quietHours.start}:00-${safeModeConfig.quietHours.end}:00). Sleeping ${Math.round(waitUntilMorning / 3600000)}h`);
@@ -1117,7 +1150,6 @@ async function safeAutoCommitLoop(repos) {
             continue;
         }
 
-        // Daily limit check
         const todayCount = dailyCommits.get(today) || 0;
         if (todayCount >= safeModeConfig.maxCommitsPerDay) {
             const waitUntilMidnight = (24 - hour) * 60 * 60 * 1000;
@@ -1127,8 +1159,7 @@ async function safeAutoCommitLoop(repos) {
             continue;
         }
 
-        // Random skip logic
-        const skipChance = isWeekday ? safeModeConfig.skipProbability : safeModeConfig.skipProbability * 2;
+        const skipChance = isWeekday ? safeModeConfig.skipProbability : safeModeConfig.skipProbability * 1.5;
         if (Math.random() < skipChance) {
             const skipDelay = jitter(safeModeConfig.minDelay, safeModeConfig.maxDelay - safeModeConfig.minDelay);
             addActivityLog(`🎲 Randomly skipping (${Math.round(skipDelay / 60000)}min wait)`);
@@ -1136,7 +1167,6 @@ async function safeAutoCommitLoop(repos) {
             continue;
         }
 
-        // Weekday bias
         if (!isWeekday && Math.random() > (1 - safeModeConfig.workdayBias)) {
             const weekendDelay = jitter(safeModeConfig.maxDelay, 60 * 60 * 1000);
             addActivityLog(`📅 Weekend - reduced activity (${Math.round(weekendDelay / 60000)}min wait)`);
@@ -1144,7 +1174,6 @@ async function safeAutoCommitLoop(repos) {
             continue;
         }
 
-        // Calculate human-like delay
         const baseDelay = jitter(safeModeConfig.minDelay, safeModeConfig.maxDelay - safeModeConfig.minDelay);
         const isWorkHours = hour >= 9 && hour <= 17;
         const delayMultiplier = isWorkHours ? 0.7 : 1.3;
@@ -1155,7 +1184,6 @@ async function safeAutoCommitLoop(repos) {
 
         if (!safeModeLoopActive) break;
 
-        // Select repo
         const selectedRepo = smartRotationEnabled ? 
             repos[currentRepoIndex] : 
             repos[Math.floor(Math.random() * repos.length)];
@@ -1266,7 +1294,7 @@ async function generateSimulatedCommits() {
             simulatedCommitDates.push(date);
         }
 
-        await delay(500);
+        await delay(1000);
     }
 
     showStatusMessage(`✅ Simulation complete: ${successfulCommits}/${datesToCommit.length} commits successful`, successfulCommits === datesToCommit.length ? "success" : "warning");
@@ -1352,7 +1380,7 @@ async function loadRealContributionHeatmap() {
             }
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
+            const timeoutId = setTimeout(() => controller.abort(), 20000);
 
             const res = await fetch(`https://api.github.com/users/${username}/events?page=${page}&per_page=100`, { 
                 headers,
@@ -1503,7 +1531,6 @@ document.getElementById("darkModeToggle").addEventListener("change", () => {
     saveSettingsToStorage();
 });
 
-// Tab switching
 document.querySelectorAll('.tab-button').forEach(button => {
     button.addEventListener('click', () => {
         const tabId = button.dataset.tab;
@@ -1580,7 +1607,6 @@ window.onload = () => {
     updateStatsDisplay();
     updateRateLimitDisplay();
     
-    // Update rate limits every minute
     setInterval(updateRateLimitDisplay, 60000);
 };
 
