@@ -5,9 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vercel dev",
-    "build": "echo 'No build step required'",
-    "deploy": "vercel --prod",
-    "test": "echo 'Tests not yet implemented'"
+    "build": "echo 'Static site - no build required'",
+    "deploy": "vercel --prod"
   },
   "keywords": [
     "github",
@@ -42,28 +41,5 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
-  },
-  "vercel": {
-    "version": 2,
-    "builds": [
-      {
-        "src": "api/**/*.js",
-        "use": "@vercel/node"
-      },
-      {
-        "src": "*.{html,js,json,css}",
-        "use": "@vercel/static"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/api/(.*)",
-        "dest": "/api/$1"
-      },
-      {
-        "src": "/(.*)",
-        "dest": "/$1"
-      }
-    ]
   }
 }
