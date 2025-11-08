@@ -980,7 +980,7 @@ function showCommitPreviewModalWithCountdown(repo, branch, path, message, conten
 
     countdownElement.textContent = `Auto-committing in ${timeLeft}s...`;
 
-    countdownInterval = setInterval(() => {
+    countdownInterval = setInterval((). => {
         timeLeft--;
         countdownElement.textContent = `Auto-committing in ${timeLeft}s...`;
         if (timeLeft <= 0) {
@@ -1280,157 +1280,239 @@ async function generateSimulatedCommits() {
     renderHeatmapFromSimulatedData();
 }
 
-// ============= HEATMAP FUNCTIONS =============
+// ============= D3-BASED HEATMAP RENDERER =============
 
+function renderD3Heatmap(containerId, commitData) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    if (Object.keys(commitData).length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center p-4">No commit data available</p>';
+        return;
+    }
+    
+    const cellSize = 12;
+    const cellPadding = 2;
+    const width = 900;
+    const height = 150;
+    const legendHeight = 20;
+    
+    const svg = d3.select(`#${containerId}`)
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height + legendHeight)
+        .attr('class', 'mx-auto');
+    
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 364);
+    
+    const dateArray = [];
+    for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+        dateArray.push(new Date(d));
+    }
+    
+    const commitsByDate = {};
+    Object.keys(commitData).forEach(timestamp => {
+        const date = new Date(parseInt(timestamp) * 1000);
+        const dateStr = date.toISOString().split('T')[0];
+        commitsByDate[dateStr] = commitData[timestamp];
+    });
+    
+    const maxCommits = Math.max(...Object.values(commitsByDate), 1);
+    
+    const colorScale = d3.scaleQuantize()
+        .domain([0, maxCommits])
+        .range(['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39']);
+    
+    const tooltip = d3.select('body')
+        .append('div')
+        .attr('class', 'absolute hidden bg-gray-800 text-white text-xs rounded px-2 py-1 pointer-events-none')
+        .style('z-index', '1000');
+    
+    const weeks = d3.groups(dateArray, d => d3.timeWeek.floor(d));
+    
+    const weekGroups = svg.selectAll('g')
+        .data(weeks)
+        .enter()
+        .append('g')
+        .attr('transform', (d, i) => `translate(${i * (cellSize + cellPadding)}, 0)`);
+    
+    weekGroups.selectAll('rect')
+        .data(d => d[1])
+        .enter()
+        .append('rect')
+        .attr('class', 'heatmap-cell')
+        .attr('width', cellSize)
+        .attr('height', cellSize)
+        .attr('x', 0)
+        .attr('y', (d) => d.getDay() * (cellSize + cellPadding))
+        .attr('rx', 2)
+        .attr('ry', 2)
+        .attr('fill', d => {
+            const dateStr = d.toISOString().split('T')[0];
+            const commits = commitsByDate[dateStr] || 0;
+            return colorScale(commits);
+        })
+        .on('mouseover', function(event, d) {
+            const dateStr = d.toISOString().split('T')[0];
+            const commits = commitsByDate[dateStr] || 0;
+            tooltip
+                .html(`${dateStr}<br/>${commits} commit${commits !== 1 ? 's' : ''}`)
+                .style('left', (event.pageX + 10) + 'px')
+                .style('top', (event.pageY - 20) + 'px')
+                .classed('hidden', false);
+            d3.select(this).attr('stroke', '#1b1f23').attr('stroke-width', 2);
+        })
+        .on('mouseout', function() {
+            tooltip.classed('hidden', true);
+            d3.select(this).attr('stroke', 'none');
+        });
+    
+    const months = svg.append('g')
+        .attr('transform', `translate(0, ${height - 20})`);
+    
+    const monthLabels = d3.timeMonths(startDate, today);
+    months.selectAll('text')
+        .data(monthLabels)
+        .enter()
+        .append('text')
+        .attr('x', d => {
+            const weekIndex = d3.timeWeek.count(startDate, d);
+            return weekIndex * (cellSize + cellPadding);
+        })
+        .attr('y', 15)
+        .attr('class', 'text-xs fill-gray-600 dark:fill-gray-400')
+s        .text(d => d3.timeFormat('%b')(d));
+    
+    const legend = svg.append('g')
+        .attr('transform', `translate(${width - 200}, ${height + 5})`);
+    
+    legend.append('text')
+        .attr('x', -60)
+        .attr('y', 10)
+        .attr('class', 'text-xs fill-gray-600 dark:fill-gray-400')
+        .text('Less');
+    
+    const legendColors = ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39'];
+    legendColors.forEach((color, i) => {
+        legend.append('rect')
+            .attr('width', cellSize)
+            .attr('height', cellSize)
+            .attr('x', i * (cellSize + cellPadding))
+            .attr('y', 0)
+            .attr('rx', 2)
+            .attr('fill', color);
+    });
+    
+    legend.append('text')
+        .attr('x', legendColors.length * (cellSize + cellPadding) + 5)
+        .attr('y', 10)
+        .attr('class', 'text-xs fill-gray-600 dark:fill-gray-400')
+        .text('More');
+}
+
+// Replace the renderHeatmapFromSimulatedData function
 function renderHeatmapFromSimulatedData() {
-    const container = document.getElementById("heatmapContainer");
-    container.innerHTML = '';
+    if (simulatedCommitDates.length === 0) {
+        showStatusMessage("No simulated data. Generate commits first.", "info");
+        return;
+    }
 
-    if (simulatedCommitDates.length === 0) {
-        showStatusMessage("No simulated data. Generate commits first.", "info");
-        return;
-    }
+    const data = {};
+    simulatedCommitDates.forEach(date => {
+        const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000;
+        data[timestamp] = (data[timestamp] || 0) + 1;
+    });
 
-    const data = {};
-    simulatedCommitDates.forEach(date => {
-        const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000;
-        data[timestamp] = (data[timestamp] || 0) + 1;
-    });
-
-    const firstDate = new Date(Math.min(...simulatedCommitDates.map(d => d.getTime())));
-    const lastDate = new Date(Math.max(...simulatedCommitDates.map(d => d.getTime())));
-
-    const cal = new CalHeatmap();
-    cal.init({
-        itemSelector: "#heatmapContainer",
-        domain: "month",
-        subDomain: "day",
-        range: 12,
-        start: new Date(lastDate.getFullYear(), lastDate.getMonth() - 11, 1),
-        data: data,
-        legend: [1, 2, 3, 4],
-        tooltip: true,
-        displayLegend: true,
-        verticalOrientation: false,
-        label: { position: "top" },
-        subDomainTitleFormat: {
-            empty: "{date}",
-            filled: "{count} commits on {date}"
-        },
-        cellSize: 10,
-        cellPadding: 2,
-        colLimit: 13,
-        animationDuration: 500
-    });
-    showStatusMessage("Simulated heatmap updated", "info");
+    renderD3Heatmap('heatmapContainer', data);
+    showStatusMessage("Simulated heatmap updated", "info");
 }
 
+// Replace the loadRealContributionHeatmap function
 async function loadRealContributionHeatmap() {
-    const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
-    const username = document.getElementById("username").value.trim();
-    const container = document.getElementById("realHeatmapContainer");
-    container.innerHTML = '';
+    const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
+    const username = document.getElementById("username").value.trim();
+    const container = document.getElementById("realHeatmapContainer");
+    container.innerHTML = '';
 
-    if (!token || !username) {
-        showStatusMessage("Please enter token and username", "error");
-        return;
-    }
+    if (!token || !username) {
+        showStatusMessage("Please enter token and username", "error");
+        return;
+    }
 
-    toggleLoading(true);
-    showStatusMessage(`Fetching GitHub events for ${username}...`, "info");
+    toggleLoading(true);
+    showStatusMessage(`Fetching GitHub events for ${username}...`, "info");
 
-    const headers = {
-        "Authorization": `token ${token}`,
-        "Accept": "application/vnd.github.v3+json"
-    };
+    const headers = {
+        "Authorization": `token ${token}`,
+        "Accept": "application/vnd.github.v3+json"
+    };
 
-    const realContributionData = {};
-    let page = 1;
-    const maxPages = 5;
-    let hasMoreEvents = true;
+    const realContributionData = {};
+    let page = 1;
+    const maxPages = 5;
+    let hasMoreEvents = true;
 
-    try {
-        while (page <= maxPages && hasMoreEvents) {
-            const apiCheck = apiRateLimiter.canMakeRequest();
-            if (!apiCheck.allowed) {
-                showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
-                break;
-            }
+    try {
+        while (page <= maxPages && hasMoreEvents) {
+            const apiCheck = apiRateLimiter.canMakeRequest();
+            if (!apiCheck.allowed) {
+                showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
+                break;
+            }
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 20000);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-            const res = await fetch(`https://api.github.com/users/${username}/events?page=${page}&per_page=100`, { 
-                headers,
-                signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
+            const res = await fetch(`httpshttps://api.github.com/users/${username}/events?page=${page}&per_page=100`, { 
+                headers,
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
 
-            if (!res.ok) {
-                const errorData = await res.json();
-                if (res.status === 403 && errorData.message && errorData.message.includes('rate limit')) {
-                    throw new Error("API rate limit exceeded. Wait and try again.");
-                }
-                throw new Error(errorData.message || "Failed to fetch events");
-            }
-            
-            const events = await res.json();
+            if (!res.ok) {
+                const errorData = await res.json();
+                if (res.status === 403 && errorData.message && errorData.message.includes('rate limit')) {
+                    throw new Error("API rate limit exceeded. Wait and try again.");
+                }
+                throw new Error(errorData.message || "Failed to fetch events");
+s         }
+            
+            const events = await res.json();
 
-            if (events.length === 0) {
-                hasMoreEvents = false;
-            } else {
-                events.forEach(event => {
-                    const date = new Date(event.created_at);
-                    if (event.type === 'PushEvent') {
-                        const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000;
-                        realContributionData[timestamp] = (realContributionData[timestamp] || 0) + 1;
-                    }
-                });
-                page++;
-            }
-        }
+            if (events.length === 0) {
+                hasMoreEvents = false;
+            } else {
+                events.forEach(event => {
+                    const date = new Date(event.created_at);
+                    if (event.type === 'PushEvent') {
+                        const timestamp = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime() / 1000;
+                        realContributionData[timestamp] = (realContributionData[timestamp] || 0) + 1;
+                    }
+                });
+                page++;
+            }
+        }
 
-        if (Object.keys(realContributionData).length === 0) {
-            showStatusMessage("No push events found in recent history", "info");
-            toggleLoading(false);
-            return;
-        }
+        if (Object.keys(realContributionData).length === 0) {
+            showStatusMessage("No push events found in recent history", "info");
+            toggleLoading(false);
+            return;
+        }
 
-        const eventDates = Object.keys(realContributionData).map(ts => new Date(parseInt(ts) * 1000));
-        const lastEventDate = new Date(Math.max(...eventDates.map(d => d.getTime())));
+        renderD3Heatmap('realHeatmapContainer', realContributionData);
+s       showStatusMessage("✅ Real heatmap loaded!", "success");
 
-        const cal = new CalHeatmap();
-        cal.init({
-            itemSelector: "#realHeatmapContainer",
-            domain: "month",
-            subDomain: "day",
-            range: 12,
-            start: new Date(lastEventDate.getFullYear(), lastEventDate.getMonth() - 11, 1),
-            data: realContributionData,
-            legend: [1, 2, 3, 4],
-            tooltip: true,
-            displayLegend: true,
-            verticalOrientation: false,
-            label: { position: "top" },
-            subDomainTitleFormat: {
-                empty: "{date}",
-                filled: "{count} commits on {date}"
-            },
-            cellSize: 10,
-            cellPadding: 2,
-            colLimit: 13,
-            animationDuration: 500
-        });
-        showStatusMessage("✅ Real heatmap loaded!", "success");
-
-    } catch (error) {
-        console.error("Heatmap error:", error);
-        showStatusMessage(`❌ Error: ${error.message}`, "error");
-    } finally {
-        toggleLoading(false);
-    }
+    } catch (error) {
+        console.error("Heatmap error:", error);
+        showStatusMessage(`❌ Error: ${error.message}`, "error");
+    } finally {
+        toggleLoading(false);
+    }
 }
+
 
 // ============= OAUTH HANDLERS =============
 
