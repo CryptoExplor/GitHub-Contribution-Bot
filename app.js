@@ -1,6 +1,6 @@
 // ===================================
 // SECURE GITHUB AUTO COMMIT BOT
-// Version 3.0 - Ultra Spam-Proof Edition
+// Version 3.0 - Fixed Auto Commit & Toggle Issues
 // ===================================
 
 // ============= ENHANCED SECURITY CLASSES =============
@@ -127,7 +127,6 @@ class ActivityMonitor {
         ) / intervals.length;
         const stdDev = Math.sqrt(variance);
 
-        // Enhanced pattern detection
         if (stdDev < avgInterval * 0.1 && this.commitTimes.length > 20) {
             return {
                 suspicious: true,
@@ -136,7 +135,6 @@ class ActivityMonitor {
             };
         }
 
-        // Burst detection with sliding window
         const recentCommits = this.commitTimes.filter(t => 
             Date.now() - t < 3600000
         ).length;
@@ -149,7 +147,6 @@ class ActivityMonitor {
             };
         }
 
-        // Time-of-day analysis
         const hours = this.commitTimes.map(t => new Date(t).getHours());
         const nightCommits = hours.filter(h => h >= 23 || h < 6).length;
         if (nightCommits / hours.length > 0.7 && hours.length > 30) {
@@ -178,48 +175,6 @@ class ActivityMonitor {
     }
 }
 
-// Request Queue with Retry Logic
-class RequestQueue {
-    constructor() {
-        this.queue = [];
-        this.processing = false;
-        this.maxRetries = 3;
-    }
-
-    async add(requestFn, retries = 0) {
-        return new Promise((resolve, reject) => {
-            this.queue.push({ requestFn, retries, resolve, reject });
-            this.process();
-        });
-    }
-
-    async process() {
-        if (this.processing || this.queue.length === 0) return;
-        
-        this.processing = true;
-        const { requestFn, retries, resolve, reject } = this.queue.shift();
-
-        try {
-            const result = await requestFn();
-            resolve(result);
-        } catch (error) {
-            if (retries < this.maxRetries) {
-                const backoffDelay = Math.pow(2, retries) * 1000;
-                await delay(backoffDelay);
-                this.queue.unshift({ requestFn, retries: retries + 1, resolve, reject });
-            } else {
-                reject(error);
-            }
-        }
-
-        this.processing = false;
-        if (this.queue.length > 0) {
-            await delay(100);
-            this.process();
-        }
-    }
-}
-
 // ============= GLOBAL VARIABLES =============
 
 const GITHUB_CLIENT_ID = window.GITHUB_CLIENT_ID || 'Ov23lidwfr2w8brs3SjU';
@@ -229,9 +184,9 @@ const commitRateLimiter = new RateLimiter(50, 3600000, 'commits');
 const apiRateLimiter = new RateLimiter(80, 3600000, 'api');
 const dailyCommitLimiter = new RateLimiter(15, 86400000, 'daily');
 const activityMonitor = new ActivityMonitor();
-const requestQueue = new RequestQueue();
 
 let autoCommitInterval = null;
+let autoCommitTimeout = null; // For randomized intervals
 let safeModeLoopActive = false;
 let safeModeEnabled = false;
 let smartRotationEnabled = false;
@@ -1063,7 +1018,7 @@ function cancelCommitPreview() {
     }
 }
 
-// ============= ENHANCED AUTO COMMIT & SAFE MODE =============
+// ============= ENHANCED AUTO COMMIT & SAFE MODE (FIXED) =============
 
 async function toggleAutoCommit() {
     const toggleButton = document.getElementById("toggleAutoCommitButton");
@@ -1071,10 +1026,16 @@ async function toggleAutoCommit() {
     const intervalType = document.getElementById("intervalType").value;
     const selectedRepos = Array.from(document.getElementById("repo").selectedOptions).map(option => option.value);
 
-    if (autoCommitInterval !== null || safeModeLoopActive) {
+    // Check if auto-commit is currently ON
+    if (autoCommitInterval !== null || autoCommitTimeout !== null || safeModeLoopActive) {
+        // STOP auto-commit
         if (autoCommitInterval !== null) {
             clearInterval(autoCommitInterval);
             autoCommitInterval = null;
+        }
+        if (autoCommitTimeout !== null) {
+            clearTimeout(autoCommitTimeout);
+            autoCommitTimeout = null;
         }
         if (safeModeLoopActive) {
             safeModeLoopActive = false;
@@ -1085,20 +1046,25 @@ async function toggleAutoCommit() {
         toggleButton.classList.remove('bg-red-600', 'hover:bg-red-700');
         toggleButton.classList.add('bg-green-600', 'hover:bg-green-700');
         showStatusMessage("❌ Auto Commit Disabled", "error");
+        addActivityLog("🛑 Auto commit stopped");
     } else {
+        // START auto-commit
         if (selectedRepos.length === 0) {
             showStatusMessage("Please select at least one repository", "error");
             return;
         }
 
         if (safeModeEnabled) {
+            // Start Safe Mode
             safeModeLoopActive = true;
             toggleButton.textContent = `Safe Mode Auto Commit ON`;
             toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
             toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
             showStatusMessage(`✅ Safe Mode Enabled: Enhanced human-like behavior`, "success");
+            addActivityLog("🛡️ Safe Mode auto commit started");
             safeAutoCommitLoop(selectedRepos);
         } else {
+            // Start Regular Auto Commit
             if (isNaN(intervalValue) || intervalValue <= 0) {
                 showStatusMessage("Please enter a valid positive interval", "error");
                 return;
@@ -1115,17 +1081,23 @@ async function toggleAutoCommit() {
             const minInterval = intervalMilliseconds * (1 - randomVariation);
             const maxInterval = intervalMilliseconds * (1 + randomVariation);
 
-            const performCommit = async () => {
+            // Immediate first commit
+            await commitToGitHub(null, null, null, null, true);
+            addActivityLog(`✅ Auto commit started (Every ${intervalValue} ${intervalType} ±25%)`);
+
+            // Function to schedule next commit with randomization
+            const scheduleNextCommit = () => {
                 const randomizedInterval = minInterval + Math.random() * (maxInterval - minInterval);
-                await commitToGitHub(null, null, null, null, true);
-                
-                if (autoCommitInterval !== null) {
-                    clearInterval(autoCommitInterval);
-                    autoCommitInterval = setTimeout(performCommit, randomizedInterval);
-                }
+                autoCommitTimeout = setTimeout(async () => {
+                    await commitToGitHub(null, null, null, null, true);
+                    if (autoCommitTimeout !== null) {
+                        scheduleNextCommit(); // Schedule next commit
+                    }
+                }, randomizedInterval);
             };
 
-            await performCommit();
+            scheduleNextCommit();
+
             toggleButton.textContent = `Auto Commit ON (Every ${intervalValue} ${intervalType} ±25%)`;
             toggleButton.classList.remove('bg-green-600', 'hover:bg-green-700');
             toggleButton.classList.add('bg-red-600', 'hover:bg-red-700');
@@ -1143,6 +1115,7 @@ async function safeAutoCommitLoop(repos) {
         const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
         const today = now.toDateString();
 
+        // Quiet hours check
         if (hour >= safeModeConfig.quietHours.start || hour < safeModeConfig.quietHours.end) {
             const waitUntilMorning = ((safeModeConfig.quietHours.end - hour + 24) % 24) * 60 * 60 * 1000;
             addActivityLog(`😴 Quiet hours (${safeModeConfig.quietHours.start}:00-${safeModeConfig.quietHours.end}:00). Sleeping ${Math.round(waitUntilMorning / 3600000)}h`);
@@ -1150,6 +1123,7 @@ async function safeAutoCommitLoop(repos) {
             continue;
         }
 
+        // Daily limit check
         const todayCount = dailyCommits.get(today) || 0;
         if (todayCount >= safeModeConfig.maxCommitsPerDay) {
             const waitUntilMidnight = (24 - hour) * 60 * 60 * 1000;
@@ -1159,6 +1133,7 @@ async function safeAutoCommitLoop(repos) {
             continue;
         }
 
+        // Random skip
         const skipChance = isWeekday ? safeModeConfig.skipProbability : safeModeConfig.skipProbability * 1.5;
         if (Math.random() < skipChance) {
             const skipDelay = jitter(safeModeConfig.minDelay, safeModeConfig.maxDelay - safeModeConfig.minDelay);
@@ -1167,6 +1142,7 @@ async function safeAutoCommitLoop(repos) {
             continue;
         }
 
+        // Weekend reduction
         if (!isWeekday && Math.random() > (1 - safeModeConfig.workdayBias)) {
             const weekendDelay = jitter(safeModeConfig.maxDelay, 60 * 60 * 1000);
             addActivityLog(`📅 Weekend - reduced activity (${Math.round(weekendDelay / 60000)}min wait)`);
@@ -1174,6 +1150,7 @@ async function safeAutoCommitLoop(repos) {
             continue;
         }
 
+        // Calculate delay
         const baseDelay = jitter(safeModeConfig.minDelay, safeModeConfig.maxDelay - safeModeConfig.minDelay);
         const isWorkHours = hour >= 9 && hour <= 17;
         const delayMultiplier = isWorkHours ? 0.7 : 1.3;
@@ -1184,6 +1161,7 @@ async function safeAutoCommitLoop(repos) {
 
         if (!safeModeLoopActive) break;
 
+        // Select repo
         const selectedRepo = smartRotationEnabled ? 
             repos[currentRepoIndex] : 
             repos[Math.floor(Math.random() * repos.length)];
