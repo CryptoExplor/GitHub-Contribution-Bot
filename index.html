@@ -5,17 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GitHub Auto Commit Bot - Secure Edition</title>
 
-    <!-- Security Headers -->
+    <!-- Security Headers - Fixed CSP to allow Font Awesome -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
-        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net;
-        font-src 'self' https://fonts.gstatic.com;
-        connect-src 'self' https://api.github.com https://generativelanguage.googleapis.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
+        font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;
+        connect-src 'self' https://api.github.com https://generativelanguage.googleapis.com https://cdn.jsdelivr.net;
         img-src 'self' https: data:;
     ">
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
 
     <!-- Favicon & Branding -->
     <link rel="icon" href="favicon.ico" type="image/x-icon">
@@ -53,7 +52,22 @@
             border-left: 4px solid #f59e0b;
         }
     </style>
-    <link href="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.css" rel="stylesheet">
+    
+    <!-- Use D3-based heatmap instead of cal-heatmap -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .heatmap-cell {
+            fill: #ebedf0;
+            shape-rendering: crispEdges;
+        }
+        .heatmap-cell:hover {
+            stroke: #1b1f23;
+            stroke-width: 1px;
+        }
+        .dark .heatmap-cell {
+            fill: #161b22;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-between p-4 transition-colors duration-300 ease-in-out">
     
@@ -384,7 +398,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/cal-heatmap@4.0.0/dist/cal-heatmap.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
