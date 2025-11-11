@@ -15,6 +15,9 @@ const STATIC_ASSETS = [
     '/app.js',
     '/guide.html',
     '/manifest.json',
+    '/favicon.ico',
+    '/icon.png',
+    '/icon-512.png',
     'https://cdn.tailwindcss.com',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
@@ -184,8 +187,8 @@ self.addEventListener('push', event => {
         const data = event.data.json();
         const options = {
             body: data.body || 'New notification',
-            icon: data.icon || '/icon.png',
-            badge: '/icon.png',
+            icon: data.icon || './icon.png',
+            badge: './icon.png',
             vibrate: [200, 100, 200],
             data: {
                 dateOfArrival: Date.now(),
@@ -195,12 +198,12 @@ self.addEventListener('push', event => {
                 {
                     action: 'view',
                     title: 'View',
-                    icon: '/icon.png'
+                    icon: './icon.png'
                 },
                 {
                     action: 'close',
                     title: 'Close',
-                    icon: '/icon.png'
+                    icon: './icon.png'
                 }
             ]
         };
