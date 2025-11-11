@@ -219,17 +219,44 @@ const safeModeConfig = {
     naturalVariation: 0.3
 };
 
-// ============= TOKEN VALIDATION =============
+// ============= IMPROVED TOKEN VALIDATION =============
 
 function validateGitHubToken(token) {
     if (!token || typeof token !== 'string') return false;
     
-    // GitHub classic tokens: ghp_[36-40 chars]
-    const classicPattern = /^ghp_[a-zA-Z0-9]{36,40}$/;
-    // Fine-grained tokens: github_pat_[22 chars]_[59 chars]
-    const fineGrainedPattern = /^github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}$/;
+    // More lenient validation for different GitHub token types
+    // Classic PAT: ghp_[alphanumeric, 36+ chars]
+    const classicPattern = /^ghp_[a-zA-Z0-9_]{36,}$/;
+    // Fine-grained PAT: github_pat_[22 chars]_[59+ chars]
+    const fineGrainedPattern = /^github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59,}$/;
+    // OAuth tokens: gho_[alphanumeric, 36+ chars]
+    const oauthPattern = /^gho_[a-zA-Z0-9_]{36,}$/;
+    // Old format: just alphanumeric (40 chars)
+    const legacyPattern = /^[a-fA-F0-9]{40}$/;
     
-    return classicPattern.test(token) || fineGrainedPattern.test(token);
+    return classicPattern.test(token) || 
+           fineGrainedPattern.test(token) || 
+           oauthPattern.test(token) ||
+           legacyPattern.test(token);
+}
+
+// ============= ENHANCED ERROR HANDLING =============
+
+function getHumanReadableError(error, context = '') {
+    const errorMap = {
+        401: 'Invalid or expired token. Please regenerate your GitHub PAT.',
+        403: 'Access denied. Ensure your token has "repo" and "read:user" scopes.',
+        404: 'Resource not found. Check repository name and branch.',
+        422: 'Invalid data. Verify file path and commit message format.',
+        429: 'Rate limit exceeded. Please wait before trying again.',
+        500: 'GitHub server error. Try again in a few minutes.',
+        503: 'GitHub service unavailable. Try again later.'
+    };
+    
+    const statusCode = error.response?.status || error.status;
+    const baseMessage = errorMap[statusCode] || error.message || 'Unknown error occurred';
+    
+    return context ? `${context}: ${baseMessage}` : baseMessage;
 }
 
 // ============= UTILITY FUNCTIONS =============
@@ -553,8 +580,6 @@ function resetStats() {
 // ============= GITHUB API FUNCTIONS =============
 
 async function loadUserRepos() {
-    toggleLoading(true); // Show loading indicator
-    
     const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
     const username = document.getElementById("username").value.trim();
     const repoSelect = document.getElementById("repo");
@@ -563,24 +588,25 @@ async function loadUserRepos() {
     repoSelect.innerHTML = "<option value=''>Loading Repos...</option>";
     branchSelect.innerHTML = "<option value=''>Select Repo First</option>";
 
+    // Basic validation first
     if (!token || !username) {
         repoSelect.innerHTML = "<option value=''>Enter Token and Username</option>";
-        toggleLoading(false);
         return;
     }
     
-    // Validate token format before API call
-    if (!validateGitHubToken(token)) {
+    // Lenient token format check - just verify it looks like a GitHub token
+    if (token.length < 20 || !token.match(/^(ghp_|github_pat_|gho_|[a-fA-F0-9]{40})/)) {
         repoSelect.innerHTML = "<option value=''>Invalid Token Format</option>";
-        showStatusMessage("⚠️ Invalid token format. Please check your GitHub token.", "error");
-        toggleLoading(false);
+        showStatusMessage("⚠️ Token must be a valid GitHub PAT (starts with ghp_, github_pat_, or gho_)", "warning");
         return;
     }
 
+    // Show loading state
+    toggleLoading(true);
+
     const apiCheck = apiRateLimiter.canMakeRequest();
     if (!apiCheck.allowed) {
-        showStatusMessage(`⏱️ API rate limit. Wait ${Math.ceil(apiCheck.waitMs / 60000)} min`, "error");
-        return;
+        throw new Error(`Rate limit exceeded. Wait ${Math.ceil(apiCheck.waitMs / 60000)} minutes`);
     }
 
     const headers = {
@@ -600,12 +626,31 @@ async function loadUserRepos() {
         clearTimeout(timeoutId);
 
         if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(errorData.message || "Failed to fetch repositories");
+            const errorData = await res.json().catch(() => ({}));
+            
+            // Provide helpful error messages
+            if (res.status === 401) {
+                throw new Error("Invalid or expired token. Please check your GitHub PAT.");
+            } else if (res.status === 403) {
+                throw new Error("Access forbidden. Check token scopes (need 'repo' and 'read:user').");
+            } else {
+                throw new Error(errorData.message || `API error: ${res.status}`);
+            }
         }
         
         const repos = await res.json();
+        
+        if (!Array.isArray(repos)) {
+            throw new Error("Invalid API response format");
+        }
+
         repoSelect.innerHTML = "";
+
+        if (repos.length === 0) {
+            repoSelect.innerHTML = "<option value=''>No repositories found</option>";
+            showStatusMessage("⚠️ No repositories found for this account", "warning");
+            return;
+        }
 
         const savedSelectedRepos = JSON.parse(localStorage.getItem("gh_repos") || '[]');
 
@@ -619,16 +664,25 @@ async function loadUserRepos() {
             repoSelect.appendChild(option);
         });
 
-        if (repos.length > 0) {
-            loadRepoBranches();
-            showStatusMessage(`✅ ${repos.length} repositories loaded successfully`, "success");
-        } else {
-            showStatusMessage("⚠️ No repositories found", "warning");
+        // Update selected count
+        const count = repoSelect.selectedOptions.length;
+        const countDisplay = document.getElementById("selectedRepoCount");
+        if (countDisplay) {
+            countDisplay.textContent = count > 0 ? ` - ${count} selected` : '';
         }
+
+        loadRepoBranches();
+        showStatusMessage(`✅ ${repos.length} repositories loaded successfully`, "success");
     } catch (err) {
         console.error("Error loading repositories:", err);
         repoSelect.innerHTML = "<option value=''>Error loading repos</option>";
-        showStatusMessage(`❌ Error: ${err.message}`, "error");
+        
+        // User-friendly error messages
+        if (err.name === 'AbortError') {
+            showStatusMessage("❌ Request timeout. Check your internet connection.", "error");
+        } else {
+            showStatusMessage(`❌ ${err.message}`, "error");
+        }
     } finally {
         toggleLoading(false); // Always hide loading indicator
     }
@@ -783,24 +837,43 @@ async function makeSingleCommit() {
     const path = document.getElementById("filepath").value.trim();
     let contentInput = document.getElementById("content").value;
 
-    if (selectedRepos.length === 0) {
-        showStatusMessage("Please select at least one repository", "error");
-        return;
-    }
-    if (!token || !branch || !path) {
-        showStatusMessage("Please fill in all required fields", "error");
-        return;
+    // Input validation
+    const errors = [];
+    
+    if (!token) {
+        errors.push('GitHub token is required');
+    } else if (!validateGitHubToken(token)) {
+        errors.push('Invalid GitHub token format');
     }
     
-    // Validate token format
-    if (!validateGitHubToken(token)) {
-        showStatusMessage("⚠️ Invalid GitHub token format. Please check your token.", "error");
+    if (selectedRepos.length === 0) {
+        errors.push('Please select at least one repository');
+    }
+    
+    if (!branch) {
+        errors.push('Branch selection is required');
+    }
+    
+    if (!path) {
+        errors.push('File path is required');
+    } else if (path.includes('..') || path.startsWith('/')) {
+        errors.push('Invalid file path (no relative paths or leading slashes)');
+    }
+    
+    if (errors.length > 0) {
+        showStatusMessage(`❌ Validation failed:\n• ${errors.join('\n• ')}`, "error");
         return;
     }
 
+    if (errors.length > 0) {
+        showStatusMessage(`❌ Validation failed:\n• ${errors.join('\n• ')}`, "error");
+        return;
+    }
+
+    // Check rate limits
     const commitCheck = commitRateLimiter.canMakeRequest();
     if (!commitCheck.allowed) {
-        showStatusMessage(`⏱️ Rate limit: ${commitRateLimiter.getRemainingRequests()}/50 commits left this hour. Wait ${Math.ceil(commitCheck.waitMs / 60000)} min`, "error");
+        showStatusMessage(`⏱️ Commit rate limit: ${commitRateLimiter.getRemainingRequests()}/50 per hour. Wait ${Math.ceil(commitCheck.waitMs / 60000)} min`, "error");
         return;
     }
 
@@ -1757,4 +1830,23 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+// ============= CLEANUP ON PAGE UNLOAD =============
+
+window.addEventListener('beforeunload', () => {
+    // Clear any pending timeouts
+    if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveSettingsToStorage();
+    }
+    
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+    }
+    
+    if (autoCommitTimeout) {
+        clearTimeout(autoCommitTimeout);
+    }
+});
+
 console.log('🚀 GitHub Auto Commit Bot v3.1 - Loaded with D3 Heatmap');
+console.log('✅ Fixed token validation and error handling loaded');
