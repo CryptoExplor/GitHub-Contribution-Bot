@@ -188,6 +188,7 @@ const activityMonitor = new ActivityMonitor();
 let autoCommitInterval = null;
 let autoCommitTimeout = null;
 let safeModeLoopActive = false;
+let safeModeLoopRunning = false; // Prevent race condition
 let safeModeEnabled = false;
 let smartRotationEnabled = false;
 let commitPreviewEnabled = false;
@@ -195,6 +196,7 @@ let currentRepoIndex = 0;
 let previewCommitDetails = {};
 let countdownInterval = null;
 let simulatedCommitDates = [];
+let saveTimeout = null; // For debounced saves
 
 let totalCommits = 0;
 let safeModeCommitCount = 0;
@@ -216,6 +218,19 @@ const safeModeConfig = {
     burstPrevention: true,
     naturalVariation: 0.3
 };
+
+// ============= TOKEN VALIDATION =============
+
+function validateGitHubToken(token) {
+    if (!token || typeof token !== 'string') return false;
+    
+    // GitHub classic tokens: ghp_[36-40 chars]
+    const classicPattern = /^ghp_[a-zA-Z0-9]{36,40}$/;
+    // Fine-grained tokens: github_pat_[22 chars]_[59 chars]
+    const fineGrainedPattern = /^github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}$/;
+    
+    return classicPattern.test(token) || fineGrainedPattern.test(token);
+}
 
 // ============= UTILITY FUNCTIONS =============
 
@@ -330,7 +345,17 @@ function addActivityLog(message, isError = false) {
     }
     
     const listItem = document.createElement('li');
-    listItem.innerHTML = `${new Date().toLocaleTimeString()}: ${message}`;
+    const timeSpan = document.createElement('span');
+    timeSpan.textContent = new Date().toLocaleTimeString() + ': ';
+    
+    const messageSpan = document.createElement('span');
+    // Safe HTML parsing - only allow basic formatting tags
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = message;
+    messageSpan.innerHTML = tempDiv.innerHTML;
+    
+    listItem.appendChild(timeSpan);
+    listItem.appendChild(messageSpan);
     if (isError) listItem.classList.add('text-red-500');
     log.prepend(listItem);
     
@@ -340,6 +365,11 @@ function addActivityLog(message, isError = false) {
 }
 
 // ============= STORAGE & STATS FUNCTIONS =============
+
+function debouncedSaveSettings() {
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveSettingsToStorage, 500);
+}
 
 function saveSettingsToStorage() {
     try {
@@ -523,6 +553,8 @@ function resetStats() {
 // ============= GITHUB API FUNCTIONS =============
 
 async function loadUserRepos() {
+    toggleLoading(true); // Show loading indicator
+    
     const token = TokenManager.getToken('gh_token_oauth') || TokenManager.getToken('gh_token_enc');
     const username = document.getElementById("username").value.trim();
     const repoSelect = document.getElementById("repo");
@@ -533,6 +565,15 @@ async function loadUserRepos() {
 
     if (!token || !username) {
         repoSelect.innerHTML = "<option value=''>Enter Token and Username</option>";
+        toggleLoading(false);
+        return;
+    }
+    
+    // Validate token format before API call
+    if (!validateGitHubToken(token)) {
+        repoSelect.innerHTML = "<option value=''>Invalid Token Format</option>";
+        showStatusMessage("⚠️ Invalid token format. Please check your GitHub token.", "error");
+        toggleLoading(false);
         return;
     }
 
@@ -580,12 +621,16 @@ async function loadUserRepos() {
 
         if (repos.length > 0) {
             loadRepoBranches();
-            showStatusMessage("✅ Repositories loaded successfully", "success");
+            showStatusMessage(`✅ ${repos.length} repositories loaded successfully`, "success");
+        } else {
+            showStatusMessage("⚠️ No repositories found", "warning");
         }
     } catch (err) {
         console.error("Error loading repositories:", err);
         repoSelect.innerHTML = "<option value=''>Error loading repos</option>";
         showStatusMessage(`❌ Error: ${err.message}`, "error");
+    } finally {
+        toggleLoading(false); // Always hide loading indicator
     }
 }
 
@@ -746,6 +791,12 @@ async function makeSingleCommit() {
         showStatusMessage("Please fill in all required fields", "error");
         return;
     }
+    
+    // Validate token format
+    if (!validateGitHubToken(token)) {
+        showStatusMessage("⚠️ Invalid GitHub token format. Please check your token.", "error");
+        return;
+    }
 
     const commitCheck = commitRateLimiter.canMakeRequest();
     if (!commitCheck.allowed) {
@@ -836,7 +887,11 @@ async function commitToGitHub(targetFilePath = null, dateForMessage = null, repo
 
     if (commitMessageOverride) {
         commitMessage = commitMessageOverride;
-        finalContent = `# Auto Commit\n\n${commitMessageOverride}\n\nUpdated on ${new Date().toLocaleString()}`;
+        finalContent = `# Auto Commit
+
+${commitMessageOverride}
+
+Updated on ${new Date().toLocaleString()}`;
     } else if (contentInput === '' || dateForMessage) {
         commitMessage = generateSafeCommitMessage();
         finalContent = `# ${commitMessage}\n\nUpdated on ${dateForMessage || new Date().toLocaleString()}`;
@@ -962,6 +1017,15 @@ function showCommitPreviewModal() {
 
     modal.classList.remove('hidden');
     toggleLoading(true);
+    
+    // Focus management for accessibility
+    setTimeout(() => {
+        const messageInput = document.getElementById('previewCommitMessage');
+        if (messageInput) {
+            messageInput.focus();
+            messageInput.select();
+        }
+    }, 100);
 }
 
 function showCommitPreviewModalWithCountdown(repo, branch, path, message, content) {
@@ -1009,13 +1073,15 @@ async function confirmCommitPreview() {
 }
 
 function cancelCommitPreview() {
-    document.getElementById('commitPreviewModal').classList.add('hidden');
-    toggleLoading(false);
-    showStatusMessage("Commit cancelled", "info");
+    // Clear countdown interval first to prevent memory leak
     if (countdownInterval) {
         clearInterval(countdownInterval);
         countdownInterval = null;
     }
+    
+    document.getElementById('commitPreviewModal').classList.add('hidden');
+    toggleLoading(false);
+    showStatusMessage("Commit cancelled", "info");
 }
 
 // ============= ENHANCED AUTO COMMIT & SAFE MODE =============
@@ -1100,9 +1166,18 @@ async function toggleAutoCommit() {
 }
 
 async function safeAutoCommitLoop(repos) {
+    // Prevent race condition - only one loop at a time
+    if (safeModeLoopRunning) {
+        console.warn('Safe mode loop already running');
+        addActivityLog('⚠️ Safe mode already running', true);
+        return;
+    }
+    
+    safeModeLoopRunning = true;
     const dailyCommits = new Map();
     
-    while (safeModeLoopActive) {
+    try {
+        while (safeModeLoopActive) {
         const now = new Date();
         const hour = now.getHours();
         const isWeekday = now.getDay() >= 1 && now.getDay() <= 5;
@@ -1163,6 +1238,9 @@ async function safeAutoCommitLoop(repos) {
         if (success) {
             dailyCommits.set(today, (dailyCommits.get(today) || 0) + 1);
         }
+        }
+    } finally {
+        safeModeLoopRunning = false;
     }
     
     addActivityLog("🛑 Safe Mode stopped");
@@ -1273,8 +1351,17 @@ function renderD3Heatmap(containerId, commitData) {
     const container = document.getElementById(containerId);
     container.innerHTML = '';
     
-    if (Object.keys(commitData).length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-center p-4">No commit data available</p>';
+    // Empty state with helpful message
+    if (!commitData || Object.keys(commitData).length === 0) {
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center p-8 text-gray-500 dark:text-gray-400">
+                <svg class="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <p class="font-semibold text-center">No commit data available</p>
+                <p class="text-sm mt-1 text-center">Generate some commits to see your heatmap!</p>
+            </div>
+        `;
         return;
     }
     
@@ -1522,33 +1609,40 @@ document.getElementById('githubLogout').addEventListener('click', () => {
 document.getElementById("token").addEventListener("input", () => {
     const token = document.getElementById("token").value.trim();
     if (token) TokenManager.saveToken(token, 'gh_token_enc');
+    debouncedSaveSettings();
 });
 
 document.getElementById("geminiApiKey").addEventListener("input", () => {
     const key = document.getElementById("geminiApiKey").value.trim();
     if (key) TokenManager.saveToken(key, 'gemini_api_key_enc');
+    debouncedSaveSettings();
 });
 
-document.getElementById("username").addEventListener("input", saveSettingsToStorage);
-document.getElementById("repo").addEventListener("change", () => {
-    saveSettingsToStorage();
+document.getElementById("username").addEventListener("input", debouncedSaveSettings);
+document.getElementById("repo").addEventListener("change", (e) => {
+    const count = e.target.selectedOptions.length;
+    const countDisplay = document.getElementById("selectedRepoCount");
+    if (countDisplay) {
+        countDisplay.textContent = count > 0 ? `(${count} selected)` : '';
+    }
+    debouncedSaveSettings();
     loadRepoBranches();
 });
-document.getElementById("branch").addEventListener("change", saveSettingsToStorage);
-document.getElementById("filepath").addEventListener("input", saveSettingsToStorage);
-document.getElementById("content").addEventListener("input", saveSettingsToStorage);
-document.getElementById("intervalValue").addEventListener("input", saveSettingsToStorage);
-document.getElementById("intervalType").addEventListener("change", saveSettingsToStorage);
-document.getElementById("numSimulatedCommits").addEventListener("input", saveSettingsToStorage);
-document.getElementById("simulatedStartDate").addEventListener("change", saveSettingsToStorage);
-document.getElementById("simulatedEndDate").addEventListener("change", saveSettingsToStorage);
+document.getElementById("branch").addEventListener("change", debouncedSaveSettings);
+document.getElementById("filepath").addEventListener("input", debouncedSaveSettings);
+document.getElementById("content").addEventListener("input", debouncedSaveSettings);
+document.getElementById("intervalValue").addEventListener("input", debouncedSaveSettings);
+document.getElementById("intervalType").addEventListener("change", debouncedSaveSettings);
+document.getElementById("numSimulatedCommits").addEventListener("input", debouncedSaveSettings);
+document.getElementById("simulatedStartDate").addEventListener("change", debouncedSaveSettings);
+document.getElementById("simulatedEndDate").addEventListener("change", debouncedSaveSettings);
 document.getElementById("streakPatternSelect").addEventListener("change", () => {
-    saveSettingsToStorage();
+    debouncedSaveSettings();
     const patternType = document.getElementById("streakPatternSelect").value;
     const numCommitsContainer = document.getElementById("numCommitsContainer");
     numCommitsContainer.style.display = (patternType === "random" || patternType === "random-burst") ? 'block' : 'none';
 });
-document.getElementById("commitContext").addEventListener("input", saveSettingsToStorage);
+document.getElementById("commitContext").addEventListener("input", debouncedSaveSettings);
 
 document.getElementById("safeMode").addEventListener("change", (e) => {
     safeModeEnabled = e.target.checked;
