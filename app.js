@@ -1433,11 +1433,11 @@ function renderD3Heatmap(containerId, commitData) {
         return;
     }
     
-    const cellSize = 12;
-    const cellPadding = 2;
-    const width = 900;
-    const height = 150;
-    const legendHeight = 20;
+    const cellSize = 15;
+    const cellPadding = 3;
+    const width = 600;
+    const height = 140;
+    const legendHeight = 30;
     
     const svg = d3.select(`#${containerId}`)
         .append('svg')
@@ -1445,12 +1445,13 @@ function renderD3Heatmap(containerId, commitData) {
         .attr('height', height + legendHeight)
         .attr('class', 'mx-auto');
     
+    // Show current month only
     const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 364);
+    const startDate = new Date(today.getFullYear(), today.getMonth(), 1); // First day of current month
+    const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
     
     const dateArray = [];
-    for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         dateArray.push(new Date(d));
     }
     
@@ -1512,20 +1513,15 @@ function renderD3Heatmap(containerId, commitData) {
         });
     
     const months = svg.append('g')
-        .attr('transform', `translate(0, ${height - 20})`);
+        .attr('transform', `translate(0, ${height - 25})`);
     
-    const monthLabels = d3.timeMonths(startDate, today);
-    months.selectAll('text')
-        .data(monthLabels)
-        .enter()
-        .append('text')
-        .attr('x', d => {
-            const weekIndex = d3.timeWeek.count(startDate, d);
-            return weekIndex * (cellSize + cellPadding);
-        })
+    // Display current month name
+    months.append('text')
+        .attr('x', width / 2)
         .attr('y', 15)
-        .attr('class', 'text-xs fill-gray-600 dark:fill-gray-400')
-        .text(d => d3.timeFormat('%b')(d));
+        .attr('class', 'text-sm font-semibold fill-gray-700 dark:fill-gray-300')
+        .attr('text-anchor', 'middle')
+        .text(d3.timeFormat('%B %Y')(today));
     
     const legend = svg.append('g')
         .attr('transform', `translate(${width - 200}, ${height + 5})`);
