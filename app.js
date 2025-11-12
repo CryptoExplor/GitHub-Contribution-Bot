@@ -320,6 +320,53 @@ function generateSafeCommitMessage() {
 
 // ============= UI FUNCTIONS =============
 
+// Show notification messages with auto-dismiss and animation
+function showMessage(message, type = 'info', duration = 5000) {
+    const notification = document.getElementById('notification');
+    if (!notification) {
+        console.warn('Notification element not found');
+        return;
+    }
+    
+    notification.textContent = message;
+    
+    const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500',
+        warning: 'bg-yellow-500'
+    };
+    
+    notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 ${colors[type] || colors.info} text-white transform transition-all duration-300`;
+    notification.style.display = 'block';
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateY(-20px)';
+    
+    // Fade in
+    setTimeout(() => {
+        notification.style.opacity = '1';
+        notification.style.transform = 'translateY(0)';
+    }, 10);
+
+    // Auto-hide with fade out
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateY(-20px)';
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 300);
+    }, duration);
+}
+
+// Select all repos helper
+function selectAllRepos() {
+    const repoSelect = document.getElementById('repo');
+    for (let i = 0; i < repoSelect.options.length; i++) {
+        repoSelect.options[i].selected = true;
+    }
+    updateSelectedRepoCount();
+}
+
 function showStatusMessage(message, type) {
     const statusDiv = document.getElementById("status");
     statusDiv.innerHTML = message;
@@ -357,6 +404,22 @@ function toggleLoading(show) {
         tokenInput.disabled = true;
     } else {
         tokenInput.disabled = show;
+    }
+}
+
+// Update selected repo count with visual feedback
+function updateSelectedRepoCount() {
+    const repoSelect = document.getElementById('repo');
+    const selectedCount = repoSelect.selectedOptions.length;
+    const countSpan = document.getElementById('selectedRepoCount');
+    if (!countSpan) return;
+    
+    if (selectedCount > 0) {
+        countSpan.textContent = `(${selectedCount} selected)`;
+        countSpan.className = 'text-xs text-green-600 dark:text-green-400 font-semibold';
+    } else {
+        countSpan.textContent = '';
+        countSpan.className = 'text-xs text-gray-500 dark:text-gray-400';
     }
 }
 
@@ -657,18 +720,29 @@ async function loadUserRepos() {
         repos.forEach(repo => {
             const option = document.createElement("option");
             option.value = repo.full_name;
-            option.innerText = repo.full_name;
+            option.innerText = `${repo.full_name} ${repo.private ? '🔒' : '📂'}`;
             if (savedSelectedRepos.includes(repo.full_name)) {
                 option.selected = true;
             }
             repoSelect.appendChild(option);
         });
+        
+        // Show/hide "Select All" button
+        const selectAllBtn = document.getElementById('selectAllReposBtn');
+        if (selectAllBtn) {
+            selectAllBtn.classList.toggle('hidden', repos.length <= 1);
+        }
 
-        // Update selected count
+        // Update selected count with visual feedback
         const count = repoSelect.selectedOptions.length;
         const countDisplay = document.getElementById("selectedRepoCount");
         if (countDisplay) {
-            countDisplay.textContent = count > 0 ? ` - ${count} selected` : '';
+            if (count > 0) {
+                countDisplay.textContent = `(${count} selected)`;
+                countDisplay.className = 'text-xs text-green-600 dark:text-green-400 font-semibold';
+            } else {
+                countDisplay.textContent = '';
+            }
         }
 
         loadRepoBranches();
@@ -1510,6 +1584,16 @@ function renderD3Heatmap(containerId, commitData) {
         .on('mouseout', function() {
             tooltip.classed('hidden', true);
             d3.select(this).attr('stroke', 'none');
+        })
+        .on('click', function(event, d) {
+            // Copy date to clipboard on click
+            const dateStr = d.toISOString().split('T')[0];
+            const commits = commitsByDate[dateStr] || 0;
+            navigator.clipboard.writeText(dateStr).then(() => {
+                showMessage(`📋 Date copied: ${dateStr} (${commits} commits)`, 'info', 2000);
+            }).catch(() => {
+                showMessage('Failed to copy date', 'error', 2000);
+            });
         });
     
     const months = svg.append('g')
@@ -1700,11 +1784,7 @@ document.getElementById("geminiApiKey").addEventListener("input", () => {
 
 document.getElementById("username").addEventListener("input", debouncedSaveSettings);
 document.getElementById("repo").addEventListener("change", (e) => {
-    const count = e.target.selectedOptions.length;
-    const countDisplay = document.getElementById("selectedRepoCount");
-    if (countDisplay) {
-        countDisplay.textContent = count > 0 ? `(${count} selected)` : '';
-    }
+    updateSelectedRepoCount();
     debouncedSaveSettings();
     loadRepoBranches();
 });
