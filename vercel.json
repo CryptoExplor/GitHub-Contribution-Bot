@@ -24,12 +24,45 @@
     {
       "src": "manifest.json",
       "use": "@vercel/static"
+    },
+    {
+      "src": "favicon.ico",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "icon.png",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "icon-512.png",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/github-auth",
       "dest": "/api/github-auth.js"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/favicon.ico",
+      "headers": {
+        "Cache-Control": "public, max-age=86400"
+      }
+    },
+    {
+      "src": "/icon.png",
+      "dest": "/icon.png",
+      "headers": {
+        "Cache-Control": "public, max-age=86400"
+      }
+    },
+    {
+      "src": "/icon-512.png",
+      "dest": "/icon-512.png",
+      "headers": {
+        "Cache-Control": "public, max-age=86400"
+      }
     },
     {
       "src": "/service-worker.js",
