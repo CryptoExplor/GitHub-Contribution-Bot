@@ -1,14 +1,15 @@
 // ===================================
-// ENHANCED SERVICE WORKER v3.1
+// ENHANCED SERVICE WORKER v3.1.2
 // Offline Support & Caching Strategy
-// Fixed: Chrome Extension URL filtering
+// Fixed: Using local icon files
 // ===================================
 
-const CACHE_VERSION = 'gh-bot-v3.1';
+const CACHE_VERSION = 'gh-bot-v3.1.2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 const MAX_DYNAMIC_CACHE_SIZE = 50;
 
+// ✅ FIXED: Now includes actual local icon files
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -36,32 +37,36 @@ const limitCacheSize = async (cacheName, maxSize) => {
 
 // Helper: Check if URL should be cached
 function shouldCache(url) {
-    // Don't cache chrome extensions, browser extensions, or data URLs
-    if (url.protocol === 'chrome-extension:' || 
-        url.protocol === 'moz-extension:' || 
-        url.protocol === 'safari-extension:' ||
-        url.protocol === 'data:' ||
-        url.protocol === 'blob:') {
+    try {
+        // Don't cache chrome extensions, browser extensions, or data URLs
+        if (url.protocol === 'chrome-extension:' || 
+            url.protocol === 'moz-extension:' || 
+            url.protocol === 'safari-extension:' ||
+            url.protocol === 'data:' ||
+            url.protocol === 'blob:') {
+            return false;
+        }
+        
+        // Don't cache API calls
+        if (url.hostname === 'api.github.com' || 
+            url.hostname.includes('generativelanguage.googleapis.com')) {
+            return false;
+        }
+        
+        return true;
+    } catch (e) {
         return false;
     }
-    
-    // Don't cache API calls
-    if (url.hostname === 'api.github.com' || 
-        url.hostname.includes('generativelanguage.googleapis.com')) {
-        return false;
-    }
-    
-    return true;
 }
 
 // Install event - cache static assets
 self.addEventListener('install', event => {
-    console.log('[SW] Installing Service Worker v3.1...');
+    console.log('[SW] Installing Service Worker v3.1.2...');
     event.waitUntil(
         caches.open(STATIC_CACHE)
             .then(cache => {
-                console.log('[SW] Caching static assets');
-                // Filter out any invalid URLs before caching
+                console.log('[SW] Caching static assets including local icons');
+                // Filter valid URLs before caching
                 const validAssets = STATIC_ASSETS.filter(url => {
                     try {
                         const parsed = new URL(url, self.location.origin);
@@ -71,16 +76,28 @@ self.addEventListener('install', event => {
                         return false;
                     }
                 });
-                return cache.addAll(validAssets);
+                
+                // Cache assets one by one to avoid 404 errors blocking installation
+                return Promise.allSettled(
+                    validAssets.map(url => 
+                        cache.add(url).catch(err => {
+                            console.warn(`[SW] Failed to cache ${url}:`, err.message);
+                            return null;
+                        })
+                    )
+                );
             })
-            .then(() => self.skipWaiting())
+            .then(() => {
+                console.log('[SW] Installation complete with local icons');
+                return self.skipWaiting();
+            })
             .catch(err => console.error('[SW] Install failed:', err))
     );
 });
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
-    console.log('[SW] Activating Service Worker v3.1...');
+    console.log('[SW] Activating Service Worker v3.1.2...');
     event.waitUntil(
         caches.keys()
             .then(keys => {
@@ -187,8 +204,8 @@ self.addEventListener('push', event => {
         const data = event.data.json();
         const options = {
             body: data.body || 'New notification',
-            icon: data.icon || './icon.png',
-            badge: './icon.png',
+            icon: '/icon.png',
+            badge: '/icon.png',
             vibrate: [200, 100, 200],
             data: {
                 dateOfArrival: Date.now(),
@@ -197,13 +214,11 @@ self.addEventListener('push', event => {
             actions: [
                 {
                     action: 'view',
-                    title: 'View',
-                    icon: './icon.png'
+                    title: 'View'
                 },
                 {
                     action: 'close',
-                    title: 'Close',
-                    icon: './icon.png'
+                    title: 'Close'
                 }
             ]
         };
@@ -213,18 +228,3 @@ self.addEventListener('push', event => {
         );
     } catch (err) {
         console.error('[SW] Push notification error:', err);
-    }
-});
-
-// Notification click handler
-self.addEventListener('notificationclick', event => {
-    event.notification.close();
-    
-    if (event.action === 'view') {
-        event.waitUntil(
-            clients.openWindow('/')
-        );
-    }
-});
-
-console.log('[SW] Service Worker v3.1 loaded successfully');
