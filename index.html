@@ -28,11 +28,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
         body { font-family: 'Inter', sans-serif; }
         select[multiple] { min-height: 100px; }
-        .tab-button.active { @apply bg-blue-600 text-white; }
+        .tab-button { transition: all 0.2s ease; }
+        .tab-button.active { @apply bg-blue-600 text-white shadow-md; }
+        .tab-button:hover:not(.active) { transform: translateY(-1px); }
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
         /* Mobile responsive improvements */
         @media (max-width: 640px) {
@@ -87,6 +91,9 @@
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col items-center justify-between p-4 transition-colors duration-300 ease-in-out">
     
+    <!-- Notification Toast -->
+    <div id="notification" style="display: none;" class="fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 text-white transform transition-all duration-300"></div>
+    
     <!-- Ethical Use Warning Banner -->
     <div class="w-full max-w-4xl mb-4 warning-banner p-4 rounded-lg shadow-md">
         <div class="flex items-start">
@@ -123,12 +130,12 @@
             
             <!-- Dark Mode Toggle -->
             <div class="flex items-center mt-4">
-                <span class="text-gray-700 dark:text-gray-300 mr-2">Light</span>
+                <span class="text-gray-700 dark:text-gray-300 mr-2">☀️ Light</span>
                 <label for="darkModeToggle" class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="darkModeToggle" class="sr-only peer">
                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
                 </label>
-                <span class="text-gray-700 dark:text-gray-300 ml-2">Dark</span>
+                <span class="text-gray-700 dark:text-gray-300 ml-2">🌙 Dark</span>
             </div>
         </div>
 
@@ -183,11 +190,16 @@
             </div>
 
             <div>
-                <label for="repo" class="block text-gray-700 text-sm font-medium mb-1 dark:text-gray-300">
-                    Select Repositories 
-                    <span class="text-xs text-blue-600 dark:text-blue-400">(Hold Ctrl/Cmd to select multiple)</span>
-                    <span id="selectedRepoCount" class="text-xs text-gray-500 dark:text-gray-400"></span>
-                </label>
+                <div class="flex justify-between items-center mb-1">
+                    <label for="repo" class="block text-gray-700 text-sm font-medium dark:text-gray-300">
+                        Select Repositories 
+                        <span class="text-xs text-blue-600 dark:text-blue-400">(Hold Ctrl/Cmd to select multiple)</span>
+                        <span id="selectedRepoCount" class="text-xs text-gray-500 dark:text-gray-400"></span>
+                    </label>
+                    <button onclick="selectAllRepos()" id="selectAllReposBtn" class="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 font-medium hidden">
+                        Select All
+                    </button>
+                </div>
                 <select id="repo" multiple
                         class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                     <option value="">Loading Repos...</option>
@@ -327,7 +339,7 @@
                         class="w-full bg-blue-500 text-white py-3 rounded-md font-semibold hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md">
                     Load Real Heatmap
                 </button>
-                <div id="realHeatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto dark:bg-gray-700 dark:border-gray-600">
+                <div id="realHeatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto dark:bg-gray-700 dark:border-gray-600" style="max-width: 100%;">
                 </div>
             </div>
 
@@ -337,7 +349,7 @@
                         class="w-full bg-gray-500 text-white py-3 rounded-md font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-300 ease-in-out shadow-md mt-2">
                     Refresh Simulated Heatmap
                 </button>
-                <div id="heatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto dark:bg-gray-700 dark:border-gray-600">
+                <div id="heatmapContainer" class="mt-4 p-2 bg-gray-50 rounded-md border border-gray-200 overflow-x-auto dark:bg-gray-700 dark:border-gray-600" style="max-width: 100%;">
                 </div>
             </div>
         </div>
