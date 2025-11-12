@@ -1591,7 +1591,7 @@ async function loadRealContributionHeatmap() {
 
     const realContributionData = {};
     let page = 1;
-    const maxPages = 5;
+    const maxPages = 3; // GitHub API limits events pagination to ~10 pages, use 3 for safety
     let hasMoreEvents = true;
 
     try {
@@ -1613,10 +1613,25 @@ async function loadRealContributionHeatmap() {
             clearTimeout(timeoutId);
 
             if (!res.ok) {
-                const errorData = await res.json();
+                const errorData = await res.json().catch(() => ({}));
+                
+                // Handle pagination limit error
+                if (res.status === 422 || (errorData.message && errorData.message.includes('pagination'))) {
+                    console.warn('Pagination limit reached, using available data');
+                    hasMoreEvents = false;
+                    break;
+                }
+                
                 if (res.status === 403 && errorData.message && errorData.message.includes('rate limit')) {
                     throw new Error("API rate limit exceeded. Wait and try again.");
                 }
+                
+                // If we have some data already, use it instead of failing
+                if (Object.keys(realContributionData).length > 0) {
+                    console.warn('API error but have data:', errorData.message);
+                    break;
+                }
+                
                 throw new Error(errorData.message || "Failed to fetch events");
             }
             
@@ -1637,13 +1652,14 @@ async function loadRealContributionHeatmap() {
         }
 
         if (Object.keys(realContributionData).length === 0) {
-            showStatusMessage("No push events found in recent history", "info");
+            showStatusMessage("No push events found in recent history (last ~300 events)", "info");
             toggleLoading(false);
             return;
         }
 
+        const eventCount = Object.keys(realContributionData).length;
         renderD3Heatmap('realHeatmapContainer', realContributionData);
-        showStatusMessage("✅ Real heatmap loaded!", "success");
+        showStatusMessage(`✅ Real heatmap loaded! (${eventCount} days with activity)`, "success");
 
     } catch (error) {
         console.error("Heatmap error:", error);
