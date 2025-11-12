@@ -865,11 +865,6 @@ async function makeSingleCommit() {
         return;
     }
 
-    if (errors.length > 0) {
-        showStatusMessage(`❌ Validation failed:\n• ${errors.join('\n• ')}`, "error");
-        return;
-    }
-
     // Check rate limits
     const commitCheck = commitRateLimiter.canMakeRequest();
     if (!commitCheck.allowed) {
